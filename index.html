@@ -258,8 +258,8 @@ const chargé={};
 async function gsApi(params){
   try{
     setStatus(null,'Synchro…');
-    const url=SCRIPT_URL+'?'+new URLSearchParams(Object.assign({token:TOKEN},params)).toString();
-    const res=await fetch(url); const data=await res.json();
+    const url=SCRIPT_URL+'?'+new URLSearchParams(Object.assign({token:TOKEN,_:Date.now()},params)).toString();
+    const res=await fetch(url,{cache:'no-store'}); const data=await res.json();
     if(!data.ok) throw new Error(data.error||'Erreur');
     setStatus(true,'✓ Synchronisé'); return data.data;
   }catch(e){ setStatus(false,'⚠ '+e.message); throw e; }
