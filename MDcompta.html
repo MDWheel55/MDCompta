@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MDCompta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a0f;--s1:#111118;--s2:#1a1a24;--s3:#22222f;
+  --border:rgba(255,255,255,0.07);--text:#f0f0f5;--muted:#5a5a7a;--dim:#3a3a5a;
+  --green:#00e5a0;--green-bg:rgba(0,229,160,0.06);--green-bd:rgba(0,229,160,0.2);
+  --amber:#ffb830;--red:#ff4d6d;--blue:#4d9fff;
+  --pur:#b48eff;--pur-bg:rgba(180,142,255,0.1);--pur-bd:rgba(180,142,255,0.3);
+  --syne:'Syne',sans-serif;--mono:'Space Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--syne);min-height:100vh;font-size:14px}
+em{font-style:normal;color:var(--pur)}
+.hidden{display:none!important}
+
+/* Nav */
+.nav{display:flex;align-items:center;gap:4px;background:var(--s1);border-bottom:1px solid var(--border);padding:0 1.5rem;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.nav-logo{font-weight:800;font-size:1.15rem;padding:1rem 1rem 1rem 0}
+.nav-tab{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;padding:1rem .8rem;cursor:pointer;transition:all .15s}
+.nav-tab:hover{color:var(--text)}
+.nav-tab.active{color:var(--pur);border-bottom-color:var(--pur)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.sync{display:flex;align-items:center;gap:7px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.sync-dot.ok{background:var(--green);box-shadow:0 0 7px var(--green)}
+.sync-dot.err{background:var(--red)}
+.sync-status{font-family:var(--mono);font-size:9px;color:var(--muted)}
+
+/* Boutons */
+.btn{font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:8px 14px;border-radius:3px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text);transition:all .15s}
+.btn:hover{border-color:var(--muted)}
+.btn-p{background:var(--pur-bg);color:var(--pur);border-color:var(--pur-bd)}
+.btn-p:hover{background:rgba(180,142,255,.2)}
+.btn-g{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}
+.btn-g:hover{background:rgba(0,229,160,.15)}
+
+/* Layout */
+.wrap{max-width:1200px;margin:0 auto;padding:1.5rem}
+.sec{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sec-actions{display:flex;gap:6px}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:4px}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;white-space:nowrap}
+thead th{background:var(--s2);color:var(--muted);text-align:left;padding:8px 10px;font-weight:700;letter-spacing:.04em;border-bottom:1px solid var(--border)}
+tbody td{padding:7px 10px;border-bottom:1px solid var(--border)}
+tbody tr:hover{background:var(--s1)}
+.num{text-align:right}
+.pos{color:var(--green)}.neg{color:var(--red)}
+.tag{font-size:9px;padding:2px 6px;border-radius:3px;background:var(--s3);color:var(--muted)}
+.empty{padding:2rem;text-align:center;color:var(--muted);font-family:var(--mono);font-size:11px}
+
+/* Formulaires inline */
+.addcard{background:var(--s1);border:1px solid var(--border);border-radius:5px;padding:1rem;margin-bottom:1rem}
+.addgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
+.fld{display:flex;flex-direction:column}
+.lbl{font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.inp{width:100%;font-family:var(--mono);font-size:12px;background:var(--s2);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:8px 10px}
+.inp:focus{outline:none;border-color:var(--pur)}
+
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:1rem}
+.modal-bg.show{display:flex}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:1.5rem;width:100%;max-width:440px;max-height:90vh;overflow-y:auto}
+.modal-title{font-weight:700;font-size:1rem;margin-bottom:1rem}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mfld{margin-bottom:12px}
+.modal-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:1rem}
+.hint{font-size:10px;color:var(--amber);margin-top:4px;font-family:var(--mono)}
+
+/* Porte d'entrée */
+.gate{min-height:80vh;display:flex;align-items:center;justify-content:center;padding:1rem}
+.gate-card{background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:2rem;max-width:380px;width:100%;text-align:center}
+.gate-card h1{font-size:1.4rem;margin-bottom:.4rem}
+.gate-card p{color:var(--muted);font-size:12px;margin-bottom:1.2rem;line-height:1.5}
+.remember{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted)}
+.soon{padding:3rem;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px;border:1px dashed var(--border);border-radius:6px;line-height:1.7}
+</style>
+</head>
+<body>
+
+<!-- ====== PORTE D'ENTRÉE ====== -->
+<div id="gate" class="gate">
+  <div class="gate-card">
+    <h1>MD<em>Compta</em></h1>
+    <p>Entre ta clé d'accès pour te connecter à ta comptabilité.</p>
+    <input class="inp" id="gate-token" type="password" placeholder="Clé d'accès" autocomplete="off" style="margin-bottom:12px">
+    <button class="btn btn-p" style="width:100%" onclick="connecter()">Se connecter</button>
+    <label class="remember"><input type="checkbox" id="gate-remember" checked> Se souvenir sur cet appareil</label>
+    <p id="gate-err" class="hint hidden" style="color:var(--red)"></p>
+  </div>
+</div>
+
+<!-- ====== APPLICATION ====== -->
+<div id="app" class="hidden">
+  <div class="nav">
+    <div class="nav-logo">MD<em>Compta</em></div>
+    <button class="nav-tab active" data-tab="journal" onclick="showTab('journal')">Journal</button>
+    <button class="nav-tab" data-tab="souscomptes" onclick="showTab('souscomptes')">Sous-comptes</button>
+    <button class="nav-tab" data-tab="comptes" onclick="showTab('comptes')">Comptes</button>
+    <button class="nav-tab" data-tab="immo" onclick="showTab('immo')">Immobilisations</button>
+    <button class="nav-tab" data-tab="concil" onclick="showTab('concil')">Conciliation</button>
+    <button class="nav-tab" data-tab="dash" onclick="showTab('dash')">Tableaux de bord</button>
+    <div class="nav-right">
+      <div class="sync"><span class="sync-dot" id="dot"></span><span class="sync-status" id="status">…</span></div>
+      <button class="btn" onclick="deconnecter()">Clé</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+    <!-- ===== JOURNAL ===== -->
+    <section id="tab-journal">
+      <div class="sec">Journal
+        <div class="sec-actions">
+          <button class="btn btn-g" onclick="reconstruire()">Reconstruire</button>
+          <button class="btn btn-p" onclick="ouvrirModal()">+ Nouvelle écriture</button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Date</th><th>Type</th><th>Sous-compte</th><th>Description</th>
+            <th class="num">Montant</th><th class="num">Sous-total</th>
+            <th class="num">TPS</th><th class="num">TVQ</th>
+            <th class="num">Total</th><th class="num">Pour impôts</th>
+          </tr></thead>
+          <tbody id="journal-body"><tr><td colspan="10" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== SOUS-COMPTES ===== -->
+    <section id="tab-souscomptes" class="hidden">
+      <div class="sec">Sous-comptes</div>
+      <div class="addcard">
+        <div class="addgrid">
+          <div class="fld"><label class="lbl">Numéro</label><input class="inp" id="sc-no" placeholder="ex: 5011"></div>
+          <div class="fld"><label class="lbl">Nom</label><input class="inp" id="sc-nom" placeholder="ex: Hébergement web"></div>
+          <div class="fld"><label class="lbl">Compte parent</label><select class="inp" id="sc-parent"></select></div>
+          <div class="fld"><label class="lbl">Catégorie</label><input class="inp" id="sc-cat" placeholder="Charges"></div>
+          <div class="fld"><label class="lbl">Type taxe</label>
+            <select class="inp" id="sc-taxe"><option>TX</option><option>EX</option><option>ZR</option><option>HT</option></select>
+          </div>
+          <div class="fld"><label class="lbl">% impôts</label><input class="inp" id="sc-pct" type="number" placeholder="100"></div>
+          <div class="fld"><button class="btn btn-p" onclick="ajouterSousCompte()">+ Ajouter</button></div>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>No</th><th>Nom</th><th>Parent</th><th>Type taxe</th><th class="num">% impôts</th></tr></thead>
+          <tbody id="sc-body"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== COMPTES FINANCIERS ===== -->
+    <section id="tab-comptes" class="hidden">
+      <div class="sec">Comptes financiers</div>
+      <div class="addcard">
+        <div class="addgrid">
+          <div class="fld"><label class="lbl">Nom</label><input class="inp" id="cf-nom" placeholder="ex: Banque - épargne"></div>
+          <div class="fld"><label class="lbl">Type</label><input class="inp" id="cf-type" placeholder="Banque / Carte / Marge / Placement"></div>
+          <div class="fld"><label class="lbl">Solde d'ouverture</label><input class="inp" id="cf-solde" type="number" placeholder="0"></div>
+          <div class="fld"><label class="lbl">Date d'ouverture</label><input class="inp" id="cf-date" type="date"></div>
+          <div class="fld"><button class="btn btn-p" onclick="ajouterCompte()">+ Ajouter</button></div>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Nom du compte</th></tr></thead>
+          <tbody id="cf-body"><tr><td class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== IMMOBILISATIONS ===== -->
+    <section id="tab-immo" class="hidden">
+      <div class="sec">Immobilisations</div>
+      <div class="addcard">
+        <div class="addgrid">
+          <div class="fld"><label class="lbl">Date</label><input class="inp" id="im-date" type="date"></div>
+          <div class="fld"><label class="lbl">Description</label><input class="inp" id="im-desc" placeholder="ex: Ordinateur portable"></div>
+          <div class="fld"><label class="lbl">Catégorie</label><input class="inp" id="im-cat" placeholder="Matériel informatique"></div>
+          <div class="fld"><label class="lbl">Coût (net taxes)</label><input class="inp" id="im-cout" type="number" placeholder="0"></div>
+          <div class="fld"><label class="lbl">Compte financier</label><select class="inp" id="im-compte"></select></div>
+          <div class="fld"><label class="lbl">Taux DPA</label><input class="inp" id="im-dpa" placeholder="à déterminer"></div>
+          <div class="fld"><label class="lbl">Note</label><input class="inp" id="im-note" placeholder="taxes, classe…"></div>
+          <div class="fld"><button class="btn btn-p" onclick="ajouterImmo()">+ Ajouter</button></div>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Description</th><th>Catégorie</th><th class="num">Coût</th><th>Compte</th><th>DPA</th><th>Note</th></tr></thead>
+          <tbody id="im-body"><tr><td colspan="7" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ===== CONCILIATION (à venir) ===== -->
+    <section id="tab-concil" class="hidden">
+      <div class="sec">Conciliation bancaire</div>
+      <div class="soon">Prochaine pièce.<br>Rapprochement de chaque relevé contre le journal :<br>solde d'ouverture + mouvements = solde de clôture, avec pointage et détection des écarts.</div>
+    </section>
+
+    <!-- ===== TABLEAUX DE BORD (à venir) ===== -->
+    <section id="tab-dash" class="hidden">
+      <div class="sec">Tableaux de bord</div>
+      <div class="soon">Prochaine pièce.<br>Les quatre vues agrégées : Revenus/Dépenses, Transfert-Paiement, Taxes (par trimestre), Impôts — reconstruites depuis le journal.</div>
+    </section>
+
+  </div>
+</div>
+
+<!-- ====== MODAL : nouvelle écriture ====== -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="modal-title">Nouvelle écriture</div>
+    <div class="row2">
+      <div class="mfld"><label class="lbl">Date</label><input class="inp" id="m-date" type="date"></div>
+      <div class="mfld"><label class="lbl">Type</label><select class="inp" id="m-type"><option>Revenus</option><option>Dépenses</option><option>Transfert</option></select></div>
+    </div>
+    <div class="mfld"><label class="lbl">Sous-compte</label><select class="inp" id="m-souscompte"></select></div>
+    <div class="row2">
+      <div class="mfld"><label class="lbl">Compte financier</label><select class="inp" id="m-compte"></select></div>
+      <div class="mfld"><label class="lbl">Tiers</label><input class="inp" id="m-tiers" placeholder="Fournisseur / client"></div>
+    </div>
+    <div class="mfld"><label class="lbl">Description</label><input class="inp" id="m-desc" placeholder="ex: Microsoft 365"></div>
+    <div class="row2">
+      <div class="mfld"><label class="lbl">Montant</label><input class="inp" id="m-montant" type="number" step="0.01" placeholder="ex: 114.98"><div class="hint" id="m-hint"></div></div>
+      <div class="mfld"><label class="lbl">Base</label><select class="inp" id="m-base"><option value="TTC">TTC (total)</option><option value="ST">ST (sous-total)</option></select></div>
+    </div>
+    <div class="row2">
+      <div class="mfld"><label class="lbl">Type de taxe</label><select class="inp" id="m-typetaxe"><option value="">Auto (selon sous-compte)</option><option value="TX">TX — taxable</option><option value="EX">EX — exonéré</option><option value="ZR">ZR — détaxé</option><option value="HT">HT — hors-taxe</option></select></div>
+      <div class="mfld"><label class="lbl">Pièce</label><input class="inp" id="m-piece" placeholder="nº reçu (optionnel)"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn" onclick="fermerModal()">Annuler</button>
+      <button class="btn btn-p" id="m-save" onclick="enregistrer()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyah566jhOBMDOmubg09TNM6yshjwbTFFafPrZ8FWKLmpY896A8_j0urCfPympXPNg/exec';
+let TOKEN='';
+let SOUSCOMPTES={}, COMPTES=[], PLAN=[];
+const chargé={};
+
+async function gsApi(params){
+  try{
+    setStatus(null,'Synchro…');
+    const url=SCRIPT_URL+'?'+new URLSearchParams(Object.assign({token:TOKEN},params)).toString();
+    const res=await fetch(url); const data=await res.json();
+    if(!data.ok) throw new Error(data.error||'Erreur');
+    setStatus(true,'✓ Synchronisé'); return data.data;
+  }catch(e){ setStatus(false,'⚠ '+e.message); throw e; }
+}
+function setStatus(ok,msg){
+  const d=document.getElementById('dot'); if(d) d.className='sync-dot'+(ok===true?' ok':ok===false?' err':'');
+  const s=document.getElementById('status'); if(s) s.textContent=msg;
+}
+function fmt(n){ if(n===''||n==null||isNaN(n)) return ''; return Number(n).toLocaleString('fr-CA',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function cls(n){ return Number(n)<0?'neg':Number(n)>0?'pos':''; }
+function esc(s){ return (s==null?'':String(s)).replace(/[<>&]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];}); }
+
+async function connecter(){
+  const t=document.getElementById('gate-token').value.trim();
+  const err=document.getElementById('gate-err'); err.classList.add('hidden');
+  if(!t){ err.textContent='Entre ta clé.'; err.classList.remove('hidden'); return; }
+  TOKEN=t;
+  try{
+    await gsApi({action:'ping'});
+    if(document.getElementById('gate-remember').checked) localStorage.setItem('mdcompta_token',t);
+    document.getElementById('gate').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    await initApp();
+  }catch(e){
+    TOKEN='';
+    err.textContent=(''+e.message).indexOf('autoris')>=0?'Clé refusée.':'Connexion impossible : '+e.message;
+    err.classList.remove('hidden');
+  }
+}
+function deconnecter(){ localStorage.removeItem('mdcompta_token'); TOKEN=''; location.reload(); }
+
+async function initApp(){
+  const r=await Promise.all([
+    gsApi({action:'getSousComptes'}),
+    gsApi({action:'getComptesFinanciers'}),
+    gsApi({action:'getPlanComptable'})
+  ]);
+  SOUSCOMPTES=r[0]||{}; COMPTES=r[1]||[]; PLAN=(r[2]&&r[2].lignes)||[];
+  remplirOptions();
+  showTab('journal');
+}
+function remplirOptions(){
+  var ms=document.getElementById('m-souscompte'); ms.innerHTML='';
+  Object.keys(SOUSCOMPTES).sort().forEach(function(no){ var o=document.createElement('option'); o.value=no; o.textContent=no+' — '+SOUSCOMPTES[no].nom; ms.appendChild(o); });
+  ['m-compte','im-compte'].forEach(function(id){ var s=document.getElementById(id); s.innerHTML=''; COMPTES.forEach(function(n){ var o=document.createElement('option'); o.value=n; o.textContent=n; s.appendChild(o); }); });
+  var sp=document.getElementById('sc-parent'); sp.innerHTML='';
+  PLAN.forEach(function(p){ var v=p.No+' '+p.Nom; var o=document.createElement('option'); o.value=v; o.textContent=v; sp.appendChild(o); });
+}
+
+function showTab(tab){
+  document.querySelectorAll('.nav-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===tab); });
+  document.querySelectorAll('section[id^="tab-"]').forEach(function(s){ s.classList.add('hidden'); });
+  document.getElementById('tab-'+tab).classList.remove('hidden');
+  if(tab==='journal') chargerJournal();
+  if(tab==='souscomptes' && !chargé.sc){ chargerSousComptesTable(); chargé.sc=1; }
+  if(tab==='comptes' && !chargé.cf){ chargerComptesTable(); chargé.cf=1; }
+  if(tab==='immo' && !chargé.im){ chargerImmoTable(); chargé.im=1; }
+}
+
+async function chargerJournal(){
+  var tb=document.getElementById('journal-body');
+  try{
+    var r=await gsApi({action:'getJournal',limite:300}); var ls=(r&&r.lignes)||[];
+    if(!ls.length){ tb.innerHTML='<tr><td colspan="10" class="empty">Aucune écriture.</td></tr>'; return; }
+    tb.innerHTML='';
+    ls.reverse().forEach(function(l){
+      var tr=document.createElement('tr');
+      tr.innerHTML='<td>'+esc(l.Date)+'</td><td><span class="tag">'+esc(l.Type)+'</span></td><td>'+esc(l.SousCompte)+'</td><td>'+esc(l.Description)+'</td>'+
+        '<td class="num '+cls(l.Montant)+'">'+fmt(l.Montant)+'</td><td class="num">'+fmt(l.SousTotal)+'</td><td class="num">'+fmt(l.TPS)+'</td><td class="num">'+fmt(l.TVQ)+'</td>'+
+        '<td class="num '+cls(l.Total)+'">'+fmt(l.Total)+'</td><td class="num">'+fmt(l.TotalImpots)+'</td>';
+      tb.appendChild(tr);
+    });
+  }catch(e){ tb.innerHTML='<tr><td colspan="10" class="empty">Erreur : '+esc(e.message)+'</td></tr>'; }
+}
+async function reconstruire(){ try{ var r=await gsApi({action:'reconstruire'}); setStatus(true,'✓ '+(r.recalculees||0)+' recalculée(s)'); await chargerJournal(); }catch(e){} }
+
+async function chargerSousComptesTable(){
+  var tb=document.getElementById('sc-body'); var sc=await gsApi({action:'getSousComptes'}); SOUSCOMPTES=sc||{}; remplirOptions();
+  var nos=Object.keys(SOUSCOMPTES).sort();
+  if(!nos.length){ tb.innerHTML='<tr><td colspan="5" class="empty">Aucun sous-compte.</td></tr>'; return; }
+  tb.innerHTML='';
+  nos.forEach(function(no){ var s=SOUSCOMPTES[no]; var pct=(s.pctImpot||s.pctImpot===0)?Math.round(s.pctImpot*100)+'%':''; var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+esc(no)+'</td><td>'+esc(s.nom)+'</td><td>'+esc(s.parent)+'</td><td><span class="tag">'+esc(s.typeTaxeDefaut)+'</span></td><td class="num">'+pct+'</td>'; tb.appendChild(tr); });
+}
+async function ajouterSousCompte(){
+  var p={action:'ajouterSousCompte',No:document.getElementById('sc-no').value.trim(),Nom:document.getElementById('sc-nom').value.trim(),
+    Parent:document.getElementById('sc-parent').value,'Catégorie':document.getElementById('sc-cat').value.trim(),
+    TypeTaxe:document.getElementById('sc-taxe').value,PctImpot:document.getElementById('sc-pct').value};
+  if(!p.No||!p.Nom){ alert('Numéro et nom requis.'); return; }
+  try{ await gsApi(p); ['sc-no','sc-nom','sc-cat','sc-pct'].forEach(function(id){document.getElementById(id).value='';}); await chargerSousComptesTable(); }
+  catch(e){ alert('Erreur : '+e.message); }
+}
+
+async function chargerComptesTable(){
+  var tb=document.getElementById('cf-body'); var cf=await gsApi({action:'getComptesFinanciers'}); COMPTES=cf||[]; remplirOptions();
+  if(!COMPTES.length){ tb.innerHTML='<tr><td class="empty">Aucun compte.</td></tr>'; return; }
+  tb.innerHTML=''; COMPTES.forEach(function(n){ var tr=document.createElement('tr'); tr.innerHTML='<td>'+esc(n)+'</td>'; tb.appendChild(tr); });
+}
+async function ajouterCompte(){
+  var p={action:'ajouterCompteFinancier',Nom:document.getElementById('cf-nom').value.trim(),Type:document.getElementById('cf-type').value.trim(),
+    SoldeOuverture:document.getElementById('cf-solde').value,DateOuverture:document.getElementById('cf-date').value};
+  if(!p.Nom){ alert('Nom requis.'); return; }
+  try{ await gsApi(p); ['cf-nom','cf-type','cf-solde','cf-date'].forEach(function(id){document.getElementById(id).value='';}); await chargerComptesTable(); }
+  catch(e){ alert('Erreur : '+e.message); }
+}
+
+async function chargerImmoTable(){
+  var tb=document.getElementById('im-body'); var r=await gsApi({action:'getImmobilisations'}); var ls=(r&&r.lignes)||[];
+  if(!ls.length){ tb.innerHTML='<tr><td colspan="7" class="empty">Aucune immobilisation.</td></tr>'; return; }
+  tb.innerHTML=''; ls.forEach(function(l){ var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+esc(l.Date)+'</td><td>'+esc(l.Description)+'</td><td>'+esc(l['Catégorie'])+'</td><td class="num">'+fmt(l['Coût'])+'</td><td>'+esc(l.CompteFinancier)+'</td><td>'+esc(l.TauxDPA)+'</td><td>'+esc(l.Note)+'</td>'; tb.appendChild(tr); });
+}
+async function ajouterImmo(){
+  var p={action:'ajouterImmobilisation',Date:document.getElementById('im-date').value,Description:document.getElementById('im-desc').value.trim(),
+    'Catégorie':document.getElementById('im-cat').value.trim(),'Coût':document.getElementById('im-cout').value,
+    CompteFinancier:document.getElementById('im-compte').value,TauxDPA:document.getElementById('im-dpa').value.trim(),Note:document.getElementById('im-note').value.trim()};
+  if(!p.Description){ alert('Description requise.'); return; }
+  try{ await gsApi(p); ['im-desc','im-cat','im-cout','im-dpa','im-note'].forEach(function(id){document.getElementById(id).value='';}); await chargerImmoTable(); }
+  catch(e){ alert('Erreur : '+e.message); }
+}
+
+function ouvrirModal(){
+  document.getElementById('m-date').value=new Date().toISOString().slice(0,10);
+  ['m-montant','m-desc','m-tiers','m-piece'].forEach(function(id){document.getElementById(id).value='';});
+  majHint(); document.getElementById('modal').classList.add('show');
+}
+function fermerModal(){ document.getElementById('modal').classList.remove('show'); }
+function majHint(){ var t=document.getElementById('m-type').value; var h=document.getElementById('m-hint');
+  h.textContent=t==='Dépenses'?'Sera enregistré en négatif.':t==='Transfert'?'Mets − pour une sortie.':''; }
+document.getElementById('m-type').addEventListener('change',majHint);
+async function enregistrer(){
+  var btn=document.getElementById('m-save'); var m=parseFloat(document.getElementById('m-montant').value);
+  if(isNaN(m)){ alert('Entre un montant.'); return; }
+  var type=document.getElementById('m-type').value; if(type==='Dépenses'&&m>0) m=-m;
+  var p={action:'ajouterEcriture',Date:document.getElementById('m-date').value,Type:type,Tiers:document.getElementById('m-tiers').value,
+    CompteFinancier:document.getElementById('m-compte').value,Description:document.getElementById('m-desc').value,
+    SousCompte:document.getElementById('m-souscompte').value,Montant:m,Base:document.getElementById('m-base').value,
+    TypeTaxe:document.getElementById('m-typetaxe').value,'Pièce':document.getElementById('m-piece').value};
+  btn.disabled=true; btn.textContent='…';
+  try{ await gsApi(p); fermerModal(); await chargerJournal(); }
+  catch(e){ alert('Erreur : '+e.message); } finally{ btn.disabled=false; btn.textContent='Enregistrer'; }
+}
+
+window.addEventListener('DOMContentLoaded',async function(){
+  var s=localStorage.getItem('mdcompta_token');
+  if(s){ document.getElementById('gate-token').value=s; await connecter(); }
+});
+</script>
+</body>
+</html>
