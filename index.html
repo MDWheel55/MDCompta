@@ -251,10 +251,35 @@ tbody tr:hover{background:var(--s1)}
       </div>
     </section>
 
-    <!-- ===== TABLEAUX DE BORD (à venir) ===== -->
+    <!-- ===== TABLEAUX DE BORD ===== -->
     <section id="tab-dash" class="hidden">
-      <div class="sec">Tableaux de bord</div>
-      <div class="soon">Prochaine pièce.<br>Les quatre vues agrégées : Revenus/Dépenses, Transfert-Paiement, Taxes (par trimestre), Impôts — reconstruites depuis le journal.</div>
+      <div class="sec">Tableaux de bord
+        <div class="sec-actions">
+          <select class="inp" id="db-annee" style="width:auto;padding:6px 10px" onchange="chargerDashboards()"><option value="2026">2026</option></select>
+          <button class="btn btn-g" onclick="chargerDashboards()">Rafraîchir</button>
+        </div>
+      </div>
+
+      <div class="sec" style="border:none;margin-bottom:6px">Impôts — à mettre de côté</div>
+      <div id="db-impots" class="addcard"><div class="empty">Chargement…</div></div>
+
+      <div class="sec" style="border:none;margin:1.2rem 0 6px">Taxes TPS/TVQ — net à remettre par trimestre</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Trimestre</th><th class="num">TPS perçue</th><th class="num">CTI</th><th class="num">Net TPS</th><th class="num">TVQ perçue</th><th class="num">RTI</th><th class="num">Net TVQ</th><th class="num">À remettre</th></tr></thead>
+        <tbody id="db-taxes"><tr><td colspan="8" class="empty">Chargement…</td></tr></tbody>
+      </table></div>
+
+      <div class="sec" style="border:none;margin:1.2rem 0 6px">Revenus / Dépenses (sous-totaux par mois)</div>
+      <div class="tbl-wrap"><table id="db-revdep-t">
+        <thead id="db-revdep-h"></thead>
+        <tbody id="db-revdep"><tr><td class="empty">Chargement…</td></tr></tbody>
+      </table></div>
+
+      <div class="sec" style="border:none;margin:1.2rem 0 6px">Transferts / Paiements (par mois)</div>
+      <div class="tbl-wrap"><table id="db-transf-t">
+        <thead id="db-transf-h"></thead>
+        <tbody id="db-transf"><tr><td class="empty">Chargement…</td></tr></tbody>
+      </table></div>
     </section>
 
   </div>
@@ -358,6 +383,7 @@ function showTab(tab){
   if(tab==='comptes' && !chargé.cf){ chargerComptesTable(); chargé.cf=1; }
   if(tab==='immo' && !chargé.im){ chargerImmoTable(); chargé.im=1; }
   if(tab==='concil' && !chargé.co){ initConcil(); chargé.co=1; }
+  if(tab==='dash' && !chargé.db){ chargerDashboards(); chargé.db=1; }
 }
 
 async function chargerJournal(){
@@ -463,6 +489,66 @@ async function concilier(){
     tb.innerHTML=''; ls.forEach(function(l){ var tr=document.createElement('tr');
       tr.innerHTML='<td>'+esc(l.date)+'</td><td>'+esc(l.sousCompte)+'</td><td>'+esc(l.description)+'</td><td class="num '+cls(l.montant)+'">'+fmt(l.montant)+'</td>'; tb.appendChild(tr); });
   }catch(e){ res.innerHTML='<div class="hint" style="color:var(--red)">Erreur : '+esc(e.message)+'</div>'; }
+}
+
+/* ---- Tableaux de bord ---- */
+var MOIS3=['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+async function chargerDashboards(){
+  var annee=document.getElementById('db-annee').value;
+  try{
+    var d=await gsApi({action:'tableauxBord',annee:annee});
+    rendreImpots(d.impots);
+    rendreTaxes(d.taxes);
+    rendrePivot('db-revdep-h','db-revdep', d.revDep, 'Revenus / Dépenses');
+    rendrePivot('db-transf-h','db-transf', d.transferts, 'Transferts');
+  }catch(e){ document.getElementById('db-impots').innerHTML='<div class="empty">Erreur : '+esc(e.message)+'</div>'; }
+}
+function rendreImpots(im){
+  if(!im){ return; }
+  var html=''+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;font-family:var(--mono);font-size:12px">'+
+    bloc('Revenu actif imposable', fmt(im.revActif)+' $', 'Taux '+Math.round(im.tauxActif*1000)/10+'%')+
+    bloc('Revenu placement imposable', fmt(im.revPlacement)+' $', 'Taux '+Math.round(im.tauxPlacement*1000)/10+'%')+
+    bloc('Impôt estimé (YTD)', fmt(im.impotEstime)+' $', 'actif '+fmt(im.impotActif)+' + plac. '+fmt(im.impotPlacement))+
+    bloc('Acomptes versés', fmt(im.acomptes)+' $', '9000 + 9010')+
+    blocFort('À mettre de côté', fmt(im.resteAMettreDeCote)+' $', 'impôt estimé − acomptes')+
+    '</div>';
+  document.getElementById('db-impots').innerHTML=html;
+}
+function bloc(t,v,s){ return '<div style="background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:12px"><div style="color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.06em">'+t+'</div><div style="font-size:18px;font-weight:700;margin:4px 0">'+v+'</div><div style="color:var(--dim);font-size:9px">'+s+'</div></div>'; }
+function blocFort(t,v,s){ return '<div style="background:var(--pur-bg);border:1px solid var(--pur-bd);border-radius:4px;padding:12px"><div style="color:var(--pur);font-size:9px;text-transform:uppercase;letter-spacing:.06em">'+t+'</div><div style="font-size:20px;font-weight:800;margin:4px 0;color:var(--pur)">'+v+'</div><div style="color:var(--muted);font-size:9px">'+s+'</div></div>'; }
+function rendreTaxes(tx){
+  var tb=document.getElementById('db-taxes'); tb.innerHTML='';
+  var qs=['Q1','Q2','Q3','Q4']; var tot={tpsPercue:0,cti:0,netTps:0,tvqPercue:0,rti:0,netTvq:0,netTotal:0};
+  qs.forEach(function(q){ var t=tx[q]; if(!t) return;
+    ['tpsPercue','cti','netTps','tvqPercue','rti','netTvq','netTotal'].forEach(function(k){ tot[k]+=t[k]||0; });
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+q+'</td><td class="num">'+fmt(t.tpsPercue)+'</td><td class="num">'+fmt(t.cti)+'</td><td class="num '+cls(t.netTps)+'">'+fmt(t.netTps)+'</td><td class="num">'+fmt(t.tvqPercue)+'</td><td class="num">'+fmt(t.rti)+'</td><td class="num '+cls(t.netTvq)+'">'+fmt(t.netTvq)+'</td><td class="num" style="font-weight:700">'+fmt(t.netTotal)+'</td>';
+    tb.appendChild(tr);
+  });
+  var tr=document.createElement('tr'); tr.style.borderTop='2px solid var(--border)';
+  tr.innerHTML='<td style="font-weight:700">Année</td><td class="num">'+fmt(tot.tpsPercue)+'</td><td class="num">'+fmt(tot.cti)+'</td><td class="num">'+fmt(tot.netTps)+'</td><td class="num">'+fmt(tot.tvqPercue)+'</td><td class="num">'+fmt(tot.rti)+'</td><td class="num">'+fmt(tot.netTvq)+'</td><td class="num" style="font-weight:800;color:var(--pur)">'+fmt(tot.netTotal)+'</td>';
+  tb.appendChild(tr);
+}
+function rendrePivot(idHead,idBody,lignes,titre){
+  var head=document.getElementById(idHead), body=document.getElementById(idBody);
+  var hh='<tr><th>Sous-compte</th>'; MOIS3.forEach(function(m){ hh+='<th class="num">'+m+'</th>'; }); hh+='<th class="num">Total</th></tr>';
+  head.innerHTML=hh;
+  if(!lignes||!lignes.length){ body.innerHTML='<tr><td colspan="14" class="empty">Aucune donnée.</td></tr>'; return; }
+  body.innerHTML='';
+  var totMois=new Array(12).fill(0), totGen=0;
+  lignes.forEach(function(l){
+    var tr=document.createElement('tr');
+    var c='<td>'+esc(l.no)+' '+esc(l.nom)+'</td>';
+    for(var i=0;i<12;i++){ var v=l.mois[i]; totMois[i]+=v; c+='<td class="num '+(v?cls(v):'')+'">'+(v?fmt(v):'')+'</td>'; }
+    c+='<td class="num" style="font-weight:700">'+fmt(l.total)+'</td>'; totGen+=l.total;
+    tr.innerHTML=c; body.appendChild(tr);
+  });
+  var tr=document.createElement('tr'); tr.style.borderTop='2px solid var(--border)';
+  var c='<td style="font-weight:700">Total</td>';
+  for(var i=0;i<12;i++){ c+='<td class="num" style="font-weight:700">'+(totMois[i]?fmt(totMois[i]):'')+'</td>'; }
+  c+='<td class="num" style="font-weight:800;color:var(--pur)">'+fmt(totGen)+'</td>';
+  tr.innerHTML=c; body.appendChild(tr);
 }
 
 function ouvrirModal(){
