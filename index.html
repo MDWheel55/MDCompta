@@ -83,6 +83,15 @@ tbody tr:hover{background:var(--s1)}
 .gate-card p{color:var(--muted);font-size:12px;margin-bottom:1.2rem;line-height:1.5}
 .remember{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted)}
 .soon{padding:3rem;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px;border:1px dashed var(--border);border-radius:6px;line-height:1.7}
+.recap{background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:1.2rem;max-width:460px;font-family:var(--mono);font-size:12px}
+.recap.ok{border-color:var(--green-bd)}
+.recap.bad{border-color:rgba(255,77,109,.4)}
+.recap-line{display:flex;justify-content:space-between;padding:5px 0;color:var(--muted)}
+.recap-line b{color:var(--text);font-weight:700}
+.recap-line.tot{border-top:1px solid var(--border);margin-top:4px;padding-top:8px}
+.recap-verdict{margin-top:12px;text-align:center;font-weight:700;font-size:13px}
+.recap.ok .recap-verdict{color:var(--green)}
+.recap.bad .recap-verdict{color:var(--red)}
 </style>
 </head>
 <body>
@@ -205,10 +214,41 @@ tbody tr:hover{background:var(--s1)}
       </div>
     </section>
 
-    <!-- ===== CONCILIATION (à venir) ===== -->
+    <!-- ===== CONCILIATION ===== -->
     <section id="tab-concil" class="hidden">
-      <div class="sec">Conciliation bancaire</div>
-      <div class="soon">Prochaine pièce.<br>Rapprochement de chaque relevé contre le journal :<br>solde d'ouverture + mouvements = solde de clôture, avec pointage et détection des écarts.</div>
+      <div class="sec">Conciliation bancaire
+        <div class="sec-actions"><button class="btn btn-g" onclick="chargerSommaireConcil()">Rafraîchir</button></div>
+      </div>
+      <div class="tbl-wrap" style="margin-bottom:1.2rem">
+        <table>
+          <thead><tr>
+            <th>Compte</th><th>Période</th>
+            <th class="num">Ouverture</th><th class="num">Mouvements</th>
+            <th class="num">Calculé</th><th class="num">Relevé</th>
+            <th class="num">Écart</th><th>État</th>
+          </tr></thead>
+          <tbody id="concil-sommaire"><tr><td colspan="8" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+
+      <div class="sec">Vérifier un compte en détail</div>
+      <div class="addcard">
+        <div class="addgrid">
+          <div class="fld"><label class="lbl">Compte financier</label><select class="inp" id="co-compte"></select></div>
+          <div class="fld"><label class="lbl">Date début</label><input class="inp" id="co-d1" type="date"></div>
+          <div class="fld"><label class="lbl">Date fin</label><input class="inp" id="co-d2" type="date"></div>
+          <div class="fld"><label class="lbl">Solde ouverture (relevé)</label><input class="inp" id="co-ouv" type="number" step="0.01" placeholder="0"></div>
+          <div class="fld"><label class="lbl">Solde clôture (relevé)</label><input class="inp" id="co-clo" type="number" step="0.01" placeholder="0"></div>
+          <div class="fld"><button class="btn btn-p" onclick="concilier()">Concilier</button></div>
+        </div>
+      </div>
+      <div id="co-result"></div>
+      <div class="tbl-wrap" style="margin-top:1rem">
+        <table>
+          <thead><tr><th>Date</th><th>Sous-compte</th><th>Description</th><th class="num">Montant</th></tr></thead>
+          <tbody id="co-body"><tr><td colspan="4" class="empty">Choisis un compte et une période, puis « Concilier ».</td></tr></tbody>
+        </table>
+      </div>
     </section>
 
     <!-- ===== TABLEAUX DE BORD (à venir) ===== -->
@@ -317,6 +357,7 @@ function showTab(tab){
   if(tab==='souscomptes' && !chargé.sc){ chargerSousComptesTable(); chargé.sc=1; }
   if(tab==='comptes' && !chargé.cf){ chargerComptesTable(); chargé.cf=1; }
   if(tab==='immo' && !chargé.im){ chargerImmoTable(); chargé.im=1; }
+  if(tab==='concil' && !chargé.co){ initConcil(); chargé.co=1; }
 }
 
 async function chargerJournal(){
@@ -379,6 +420,49 @@ async function ajouterImmo(){
   if(!p.Description){ alert('Description requise.'); return; }
   try{ await gsApi(p); ['im-desc','im-cat','im-cout','im-dpa','im-note'].forEach(function(id){document.getElementById(id).value='';}); await chargerImmoTable(); }
   catch(e){ alert('Erreur : '+e.message); }
+}
+
+/* ---- Conciliation ---- */
+function initConcil(){
+  var s=document.getElementById('co-compte'); s.innerHTML='';
+  COMPTES.forEach(function(n){ var o=document.createElement('option'); o.value=n; o.textContent=n; s.appendChild(o); });
+  chargerSommaireConcil();
+}
+async function chargerSommaireConcil(){
+  var tb=document.getElementById('concil-sommaire');
+  try{
+    var r=await gsApi({action:'concilierTout'}); var ls=(r&&r.lignes)||[];
+    if(!ls.length){ tb.innerHTML='<tr><td colspan="8" class="empty">Aucune ligne dans la feuille Conciliation.</td></tr>'; return; }
+    tb.innerHTML='';
+    ls.forEach(function(l){
+      var ok=l.equilibre;
+      var etat=ok?'<span style="color:var(--green)">✓ Balance</span>':'<span style="color:var(--red)">⚠ Écart</span>';
+      var ecartCls=ok?'pos':'neg';
+      var tr=document.createElement('tr');
+      tr.innerHTML='<td>'+esc(l.compte)+'</td><td>'+esc(l.periode)+'</td>'+
+        '<td class="num">'+fmt(l.ouverture)+'</td><td class="num">'+fmt(l.somme)+'</td>'+
+        '<td class="num">'+fmt(l.clotureCalculee)+'</td><td class="num">'+fmt(l.clotureReleve)+'</td>'+
+        '<td class="num '+ecartCls+'">'+fmt(l.ecart)+'</td><td>'+etat+'</td>';
+      tb.appendChild(tr);
+    });
+  }catch(e){ tb.innerHTML='<tr><td colspan="8" class="empty">Erreur : '+esc(e.message)+'</td></tr>'; }
+}
+async function concilier(){
+  var p={action:'concilier',compte:document.getElementById('co-compte').value,
+    dateDebut:document.getElementById('co-d1').value,dateFin:document.getElementById('co-d2').value,
+    soldeOuverture:document.getElementById('co-ouv').value,soldeCloture:document.getElementById('co-clo').value};
+  var res=document.getElementById('co-result'); var tb=document.getElementById('co-body');
+  try{
+    var r=await gsApi(p);
+    var ok=r.equilibre;
+    res.innerHTML='<div class="addcard" style="border-color:'+(ok?'var(--green-bd)':'var(--red-bd)')+'">'+
+      '<span style="font-family:var(--mono);font-size:12px">Ouverture '+fmt(r.ouverture)+' + mouvements '+fmt(r.somme)+
+      ' = <b>'+fmt(r.clotureCalculee)+'</b> · relevé '+fmt(r.clotureReleve)+' · écart <b style="color:'+(ok?'var(--green)':'var(--red)')+'">'+fmt(r.ecart)+'</b> '+(ok?'✓':'⚠')+'</span></div>';
+    var ls=r.lignes||[];
+    if(!ls.length){ tb.innerHTML='<tr><td colspan="4" class="empty">Aucune transaction sur cette période.</td></tr>'; return; }
+    tb.innerHTML=''; ls.forEach(function(l){ var tr=document.createElement('tr');
+      tr.innerHTML='<td>'+esc(l.date)+'</td><td>'+esc(l.sousCompte)+'</td><td>'+esc(l.description)+'</td><td class="num '+cls(l.montant)+'">'+fmt(l.montant)+'</td>'; tb.appendChild(tr); });
+  }catch(e){ res.innerHTML='<div class="hint" style="color:var(--red)">Erreur : '+esc(e.message)+'</div>'; }
 }
 
 function ouvrirModal(){
