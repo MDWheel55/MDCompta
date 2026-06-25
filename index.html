@@ -140,9 +140,9 @@ tbody tr:hover{background:var(--s1)}
             <th>Date</th><th>Type</th><th>Sous-compte</th><th>Description</th>
             <th class="num">Montant</th><th class="num">Sous-total</th>
             <th class="num">TPS</th><th class="num">TVQ</th>
-            <th class="num">Total</th><th class="num">Pour impôts</th>
+            <th class="num">Total</th><th class="num">Pour impôts</th><th>Note</th>
           </tr></thead>
-          <tbody id="journal-body"><tr><td colspan="10" class="empty">Chargement…</td></tr></tbody>
+          <tbody id="journal-body"><tr><td colspan="11" class="empty">Chargement…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -307,6 +307,7 @@ tbody tr:hover{background:var(--s1)}
       <div class="mfld"><label class="lbl">Type de taxe</label><select class="inp" id="m-typetaxe"><option value="">Auto (selon sous-compte)</option><option value="TX">TX — taxable</option><option value="EX">EX — exonéré</option><option value="ZR">ZR — détaxé</option><option value="HT">HT — hors-taxe</option></select></div>
       <div class="mfld"><label class="lbl">Pièce</label><input class="inp" id="m-piece" placeholder="nº reçu (optionnel)"></div>
     </div>
+    <div class="mfld"><label class="lbl">Note</label><input class="inp" id="m-note" placeholder="note personnelle (optionnel)"></div>
     <div class="modal-btns">
       <button class="btn" onclick="fermerModal()">Annuler</button>
       <button class="btn btn-p" id="m-save" onclick="enregistrer()">Enregistrer</button>
@@ -390,16 +391,17 @@ async function chargerJournal(){
   var tb=document.getElementById('journal-body');
   try{
     var r=await gsApi({action:'getJournal',limite:300}); var ls=(r&&r.lignes)||[];
-    if(!ls.length){ tb.innerHTML='<tr><td colspan="10" class="empty">Aucune écriture.</td></tr>'; return; }
+    if(!ls.length){ tb.innerHTML='<tr><td colspan="11" class="empty">Aucune écriture.</td></tr>'; return; }
     tb.innerHTML='';
     ls.reverse().forEach(function(l){
       var tr=document.createElement('tr');
       tr.innerHTML='<td>'+esc(l.Date)+'</td><td><span class="tag">'+esc(l.Type)+'</span></td><td>'+esc(l.SousCompte)+'</td><td>'+esc(l.Description)+'</td>'+
         '<td class="num '+cls(l.Montant)+'">'+fmt(l.Montant)+'</td><td class="num">'+fmt(l.SousTotal)+'</td><td class="num">'+fmt(l.TPS)+'</td><td class="num">'+fmt(l.TVQ)+'</td>'+
-        '<td class="num '+cls(l.Total)+'">'+fmt(l.Total)+'</td><td class="num">'+fmt(l.TotalImpots)+'</td>';
+        '<td class="num '+cls(l.Total)+'">'+fmt(l.Total)+'</td><td class="num">'+fmt(l.TotalImpots)+'</td>'+
+        '<td>'+esc(l.notes||l.Note||'')+'</td>';
       tb.appendChild(tr);
     });
-  }catch(e){ tb.innerHTML='<tr><td colspan="10" class="empty">Erreur : '+esc(e.message)+'</td></tr>'; }
+  }catch(e){ tb.innerHTML='<tr><td colspan="11" class="empty">Erreur : '+esc(e.message)+'</td></tr>'; }
 }
 async function reconstruire(){ try{ var r=await gsApi({action:'reconstruire'}); setStatus(true,'✓ '+(r.recalculees||0)+' recalculée(s)'); await chargerJournal(); }catch(e){} }
 
@@ -553,7 +555,7 @@ function rendrePivot(idHead,idBody,lignes,titre){
 
 function ouvrirModal(){
   document.getElementById('m-date').value=new Date().toISOString().slice(0,10);
-  ['m-montant','m-desc','m-tiers','m-piece'].forEach(function(id){document.getElementById(id).value='';});
+  ['m-montant','m-desc','m-tiers','m-piece','m-note'].forEach(function(id){document.getElementById(id).value='';});
   majHint(); document.getElementById('modal').classList.add('show');
 }
 function fermerModal(){ document.getElementById('modal').classList.remove('show'); }
@@ -567,7 +569,8 @@ async function enregistrer(){
   var p={action:'ajouterEcriture',Date:document.getElementById('m-date').value,Type:type,Tiers:document.getElementById('m-tiers').value,
     CompteFinancier:document.getElementById('m-compte').value,Description:document.getElementById('m-desc').value,
     SousCompte:document.getElementById('m-souscompte').value,Montant:m,Base:document.getElementById('m-base').value,
-    TypeTaxe:document.getElementById('m-typetaxe').value,'Pièce':document.getElementById('m-piece').value};
+    TypeTaxe:document.getElementById('m-typetaxe').value,'Pièce':document.getElementById('m-piece').value,
+    Note:document.getElementById('m-note').value};
   btn.disabled=true; btn.textContent='…';
   try{ await gsApi(p); fermerModal(); await chargerJournal(); }
   catch(e){ alert('Erreur : '+e.message); } finally{ btn.disabled=false; btn.textContent='Enregistrer'; }
