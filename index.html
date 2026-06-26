@@ -115,6 +115,7 @@ tbody tr:hover{background:var(--s1)}
     <button class="nav-tab active" data-tab="journal" onclick="showTab('journal')">Journal</button>
     <button class="nav-tab" data-tab="souscomptes" onclick="showTab('souscomptes')">Sous-comptes</button>
     <button class="nav-tab" data-tab="comptes" onclick="showTab('comptes')">Comptes</button>
+    <button class="nav-tab" data-tab="factu" onclick="showTab('factu')">Facturation</button>
     <button class="nav-tab" data-tab="immo" onclick="showTab('immo')">Immobilisations</button>
     <button class="nav-tab" data-tab="concil" onclick="showTab('concil')">Conciliation</button>
     <button class="nav-tab" data-tab="dash" onclick="showTab('dash')">Tableaux de bord</button>
@@ -192,6 +193,29 @@ tbody tr:hover{background:var(--s1)}
     </section>
 
     <!-- ===== IMMOBILISATIONS ===== -->
+    <section id="tab-factu" class="hidden">
+      <div class="sec">Facturation</div>
+      <div class="addcard">
+        <div class="addgrid">
+          <div class="fld"><label class="lbl">Date facturation</label><input class="inp" id="fa-date" type="date"></div>
+          <div class="fld"><label class="lbl">Nº facture</label><input class="inp" id="fa-no" placeholder="ex: F-2026-001"></div>
+          <div class="fld"><label class="lbl">Client</label><input class="inp" id="fa-client" placeholder="ex: DR Lemire"></div>
+          <div class="fld"><label class="lbl">Description</label><input class="inp" id="fa-desc" placeholder="ex: Consultation"></div>
+          <div class="fld"><label class="lbl">Sous-compte</label><input class="inp" id="fa-sc" value="4000"></div>
+          <div class="fld"><label class="lbl">Montant</label><input class="inp" id="fa-montant" type="number" step="0.01" placeholder="ex: 12072.38"></div>
+          <div class="fld"><label class="lbl">Base</label><select class="inp" id="fa-base"><option value="TTC">TTC (total)</option><option value="ST">ST (sous-total)</option></select></div>
+          <div class="fld"><label class="lbl">Date paiement (option.)</label><input class="inp" id="fa-paie" type="date"></div>
+          <div class="fld"><button class="btn btn-p" onclick="ajouterFacture()">+ Ajouter</button></div>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Facturation</th><th>Nº</th><th>Client</th><th>Description</th><th class="num">Sous-total</th><th class="num">TPS</th><th class="num">TVQ</th><th class="num">Total</th><th>Statut</th><th>Paiement</th></tr></thead>
+          <tbody id="fa-body"><tr><td colspan="10" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
     <section id="tab-immo" class="hidden">
       <div class="sec">Immobilisations</div>
       <div class="addcard">
@@ -375,6 +399,54 @@ function remplirOptions(){
   PLAN.forEach(function(p){ var v=p.No+' '+p.Nom; var o=document.createElement('option'); o.value=v; o.textContent=v; sp.appendChild(o); });
 }
 
+async function chargerFactures(){
+  var tb=document.getElementById('fa-body');
+  try{
+    var r=await gsApi({action:'getFactures'}); var ls=(r&&r.lignes)||[];
+    if(!ls.length){ tb.innerHTML='<tr><td colspan="10" class="empty">Aucune facture.</td></tr>'; return; }
+    ls.sort(function(a,b){ return (b.dateFacturation||'').localeCompare(a.dateFacturation||''); });
+    tb.innerHTML='';
+    ls.forEach(function(l){
+      var tr=document.createElement('tr');
+      var statut = l.paye
+        ? '<span class="tag" style="color:var(--grn)">Payée</span>'
+        : '<span class="tag" style="color:var(--red)">À recevoir</span>';
+      var paie = l.paye
+        ? esc(l.datePaiement)
+        : '<button class="btn" onclick="marquerPayee(\''+esc(l.noFacture)+'\')">Encaisser</button>';
+      tr.innerHTML='<td>'+esc(l.dateFacturation)+'</td><td>'+esc(l.noFacture)+'</td><td>'+esc(l.client)+'</td><td>'+esc(l.description||'')+'</td>'+
+        '<td class="num">'+fmt(l.sousTotal)+'</td><td class="num">'+fmt(l.tps)+'</td><td class="num">'+fmt(l.tvq)+'</td>'+
+        '<td class="num">'+fmt(l.total)+'</td><td>'+statut+'</td><td>'+paie+'</td>';
+      tb.appendChild(tr);
+    });
+  }catch(e){ tb.innerHTML='<tr><td colspan="10" class="empty">Erreur : '+esc(e.message)+'</td></tr>'; }
+}
+
+async function ajouterFacture(){
+  var p={action:'ajouterFacture',
+    DateFacturation:document.getElementById('fa-date').value,
+    NoFacture:document.getElementById('fa-no').value.trim(),
+    Client:document.getElementById('fa-client').value.trim(),
+    Description:document.getElementById('fa-desc').value.trim(),
+    SousCompte:document.getElementById('fa-sc').value.trim(),
+    Montant:parseFloat(document.getElementById('fa-montant').value),
+    Base:document.getElementById('fa-base').value,
+    DatePaiement:document.getElementById('fa-paie').value};
+  if(!p.DateFacturation){ alert('Date de facturation requise.'); return; }
+  if(isNaN(p.Montant)){ alert('Montant requis.'); return; }
+  try{ await gsApi(p);
+    ['fa-no','fa-client','fa-desc','fa-montant','fa-paie'].forEach(function(id){document.getElementById(id).value='';});
+    await chargerFactures();
+  }catch(e){ alert('Erreur : '+e.message); }
+}
+
+async function marquerPayee(no){
+  var d=prompt('Date du paiement reçu (AAAA-MM-JJ ou JJ/MM/AAAA) :');
+  if(!d) return;
+  try{ await gsApi({action:'marquerPayee',NoFacture:no,DatePaiement:d}); await chargerFactures(); }
+  catch(e){ alert('Erreur : '+e.message); }
+}
+
 function showTab(tab){
   document.querySelectorAll('.nav-tab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===tab); });
   document.querySelectorAll('section[id^="tab-"]').forEach(function(s){ s.classList.add('hidden'); });
@@ -382,6 +454,7 @@ function showTab(tab){
   if(tab==='journal') chargerJournal();
   if(tab==='souscomptes' && !chargé.sc){ chargerSousComptesTable(); chargé.sc=1; }
   if(tab==='comptes' && !chargé.cf){ chargerComptesTable(); chargé.cf=1; }
+  if(tab==='factu' && !chargé.fa){ chargerFactures(); chargé.fa=1; }
   if(tab==='immo' && !chargé.im){ chargerImmoTable(); chargé.im=1; }
   if(tab==='concil' && !chargé.co){ initConcil(); chargé.co=1; }
   if(tab==='dash' && !chargé.db){ chargerDashboards(); chargé.db=1; }
