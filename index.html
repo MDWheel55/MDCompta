@@ -6,18 +6,26 @@
 <title>MDCompta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0a0a0f;--s1:#111118;--s2:#1a1a24;--s3:#22222f;
-  --border:rgba(255,255,255,0.07);--text:#f0f0f5;--muted:#5a5a7a;--dim:#3a3a5a;
-  --green:#00e5a0;--green-bg:rgba(0,229,160,0.06);--green-bd:rgba(0,229,160,0.2);
-  --amber:#ffb830;--red:#ff4d6d;--blue:#4d9fff;
-  --pur:#b48eff;--pur-bg:rgba(180,142,255,0.1);--pur-bd:rgba(180,142,255,0.3);
-  --syne:'Syne',sans-serif;--mono:'Space Mono',monospace;
+  /* Fond papier froid + encre ardoise */
+  --bg:#EDF1F4;--s1:#FFFFFF;--s2:#F6F8FA;--s3:#ECEFF3;
+  --border:#D7DEE5;--text:#16202B;--muted:#5B6976;--dim:#8A97A3;
+  /* Crédit / positif (vert-comptable) */
+  --green:#0F6E56;--green-bg:rgba(15,110,86,0.08);--green-bd:rgba(15,110,86,0.28);
+  /* Débit / négatif (brique) + fiscal (ocre) + info */
+  --amber:#9A6B12;--red:#A23B2D;--red-bg:rgba(162,59,45,0.08);--red-bd:rgba(162,59,45,0.28);--blue:#2D6CB5;
+  /* Accent MARINE (ex-purple) : wordmark, blocs forts, highlights */
+  --pur:#1E3A5F;--pur-bg:#E7ECF3;--pur-bd:#C9D5E5;
+  /* Typo IBM Plex : --syne=UI/corps, --serif=titres, --mono=données */
+  --syne:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  --serif:'IBM Plex Serif',Georgia,serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:var(--syne);min-height:100vh;font-size:14px}
+h1,.nav-logo{font-family:var(--serif);font-weight:600;letter-spacing:-.01em}
 em{font-style:normal;color:var(--pur)}
 .hidden{display:none!important}
 
@@ -49,10 +57,10 @@ em{font-style:normal;color:var(--pur)}
 
 /* Table */
 .tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:4px}
-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;white-space:nowrap}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
 thead th{background:var(--s2);color:var(--muted);text-align:left;padding:8px 10px;font-weight:700;letter-spacing:.04em;border-bottom:1px solid var(--border)}
 tbody td{padding:7px 10px;border-bottom:1px solid var(--border)}
-tbody tr:hover{background:var(--s1)}
+tbody tr:hover{background:var(--s2)}
 .num{text-align:right}
 .pos{color:var(--green)}.neg{color:var(--red)}
 .tag{font-size:9px;padding:2px 6px;border-radius:3px;background:var(--s3);color:var(--muted)}
@@ -83,7 +91,7 @@ tbody tr:hover{background:var(--s1)}
 .gate-card p{color:var(--muted);font-size:12px;margin-bottom:1.2rem;line-height:1.5}
 .remember{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted)}
 .soon{padding:3rem;text-align:center;color:var(--muted);font-family:var(--mono);font-size:12px;border:1px dashed var(--border);border-radius:6px;line-height:1.7}
-.recap{background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:1.2rem;max-width:460px;font-family:var(--mono);font-size:12px}
+.recap{background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:1.2rem;max-width:460px;font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
 .recap.ok{border-color:var(--green-bd)}
 .recap.bad{border-color:rgba(255,77,109,.4)}
 .recap-line{display:flex;justify-content:space-between;padding:5px 0;color:var(--muted)}
