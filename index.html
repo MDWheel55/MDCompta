@@ -66,7 +66,7 @@ tbody tr:hover{background:var(--s2)}
 thead th{position:relative}
 .col-rs{position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;user-select:none;z-index:2}
 .col-rs:hover,.col-rs.on{background:var(--pur-bd)}
-table.resizable{table-layout:fixed;width:max-content;min-width:100%}
+table.resizable{table-layout:fixed}
 table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
 .pos{color:var(--green)}.neg{color:var(--red)}
 .tag{font-size:9px;padding:2px 6px;border-radius:3px;background:var(--s3);color:var(--muted)}
@@ -659,16 +659,23 @@ function rendreRedimensionnable(table){
     h.addEventListener('mousedown',function(e){
       e.preventDefault();
       if(!table.classList.contains('resizable')){
-        ths.forEach(function(t){ t.style.width=t.offsetWidth+'px'; });   // fige les largeurs actuelles
+        var tot=0;
+        ths.forEach(function(t){ var w=t.offsetWidth; t.style.width=w+'px'; tot+=w; });  // fige les largeurs actuelles
+        table.style.width=tot+'px';                                                       // ...et la largeur totale
         table.classList.add('resizable');
       }
-      var x0=e.pageX, w0=th.offsetWidth; h.classList.add('on');
-      function move(ev){ th.style.width=Math.max(40,w0+(ev.pageX-x0))+'px'; }
+      var x0=e.pageX, w0=th.offsetWidth, tw0=table.offsetWidth; h.classList.add('on');
+      function move(ev){
+        var w=Math.max(40,w0+(ev.pageX-x0));
+        th.style.width=w+'px';
+        table.style.width=(tw0+(w-w0))+'px';   // la largeur du tableau suit la colonne : réduction possible
+      }
       function up(){ document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up); h.classList.remove('on'); }
       document.addEventListener('mousemove',move); document.addEventListener('mouseup',up);
     });
     h.addEventListener('dblclick',function(){
       ths.forEach(function(t){ t.style.width=''; });
+      table.style.width='';
       table.classList.remove('resizable');
     });
   });
