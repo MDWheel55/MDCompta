@@ -343,6 +343,25 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
 </div>
 
 <!-- ====== MODAL : nouvelle écriture ====== -->
+<!-- ====== MODAL : encaissement d'une facture ====== -->
+<div class="modal-bg" id="modal-enc">
+  <div class="modal">
+    <div class="modal-title">Encaisser une facture</div>
+    <div class="mfld"><label class="lbl">Facture</label><input class="inp" id="enc-no" readonly style="opacity:.7"></div>
+    <div class="mfld"><label class="lbl">Client</label><input class="inp" id="enc-client" readonly style="opacity:.7"></div>
+    <div class="row2">
+      <div class="mfld"><label class="lbl">Date du transfert reçu</label><input class="inp" id="enc-date" type="date"></div>
+      <div class="mfld"><label class="lbl">Compte financier</label><select class="inp" id="enc-compte"></select></div>
+    </div>
+    <div class="mfld"><label class="lbl">Montant encaissé</label><input class="inp" id="enc-montant" type="number" step="0.01"></div>
+    <p class="hint" id="enc-hint"></p>
+    <div class="modal-actions">
+      <button class="btn" onclick="fermerModalEnc()">Annuler</button>
+      <button class="btn btn-p" id="enc-save" onclick="confirmerEncaissement()">Encaisser</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal">
   <div class="modal">
     <div class="modal-title">Nouvelle écriture</div>
@@ -393,6 +412,7 @@ function setStatus(ok,msg){
 }
 function fmt(n){ if(n===''||n==null||isNaN(n)) return ''; return Number(n).toLocaleString('fr-CA',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function cls(n){ return Number(n)<0?'neg':Number(n)>0?'pos':''; }
+var FACTURES=[];
 function esc(s){ return (s==null?'':String(s)).replace(/[<>&]/g,function(c){return {'<':'&lt;','>':'&gt;','&':'&amp;'}[c];}); }
 
 async function connecter(){
@@ -437,6 +457,7 @@ async function chargerFactures(){
   var tb=document.getElementById('fa-body');
   try{
     var r=await gsApi({action:'getFactures'}); var ls=(r&&r.lignes)||[];
+    FACTURES=ls;
     if(!ls.length){ tb.innerHTML='<tr><td colspan="10" class="empty">Aucune facture.</td></tr>'; return; }
     ls.sort(function(a,b){ return (b.dateFacturation||'').localeCompare(a.dateFacturation||''); });
     tb.innerHTML='';
@@ -446,7 +467,7 @@ async function chargerFactures(){
         ? '<span class="tag" style="color:var(--grn)">Payée</span>'
         : '<span class="tag" style="color:var(--red)">À recevoir</span>';
       var paie = l.paye
-        ? esc(l.datePaiement)
+        ? esc(l.datePaiement)+' <button class="btn" style="padding:2px 6px;font-size:9px" title="Annuler l\'encaissement" onclick="devirerFacture(\''+esc(l.noFacture)+'\')">✕</button>'
         : '<button class="btn" onclick="marquerPayee(\''+esc(l.noFacture)+'\')">Encaisser</button>';
       tr.innerHTML='<td>'+esc(l.dateFacturation)+'</td><td>'+esc(l.noFacture)+'</td><td>'+esc(l.client)+'</td><td>'+esc(l.description||'')+'</td>'+
         '<td class="num">'+fmt(l.sousTotal)+'</td><td class="num">'+fmt(l.tps)+'</td><td class="num">'+fmt(l.tvq)+'</td>'+
@@ -474,10 +495,48 @@ async function ajouterFacture(){
   }catch(e){ alert('Erreur : '+e.message); }
 }
 
-async function marquerPayee(no){
-  var d=prompt('Date du paiement reçu (AAAA-MM-JJ ou JJ/MM/AAAA) :');
-  if(!d) return;
-  try{ await gsApi({action:'marquerPayee',NoFacture:no,DatePaiement:d}); await chargerFactures(); }
+/* ---- Encaissement d'une facture ----
+   Deux jambes, une par feuille :
+     - le REVENU reste dans Factures, à la date de FACTURATION (4000)
+     - l'ENCAISSEMENT part au Journal, à la date du TRANSFERT réel (9090)
+   Le nº de facture va dans la colonne Pièce : c'est la clé d'appariement et
+   le garde-fou anti-doublon côté serveur. */
+function marquerPayee(no){
+  var fa=(FACTURES||[]).filter(function(x){ return String(x.noFacture)===String(no); })[0];
+  if(!fa){ alert('Facture introuvable.'); return; }
+  document.getElementById('enc-no').value=fa.noFacture;
+  document.getElementById('enc-client').value=fa.client||'';
+  document.getElementById('enc-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('enc-montant').value=Number(fa.total||0).toFixed(2);
+  document.getElementById('enc-hint').textContent='Total facturé : '+fmt(fa.total)+' $. Ajuste le montant si le client a payé autrement.';
+  var s=document.getElementById('enc-compte'); s.innerHTML='';
+  COMPTES.forEach(function(n){ var o=document.createElement('option'); o.value=n; o.textContent=n; s.appendChild(o); });
+  if(COMPTES.indexOf('Banque - chèques')>=0) s.value='Banque - chèques';
+  document.getElementById('modal-enc').classList.add('show');
+}
+function fermerModalEnc(){ document.getElementById('modal-enc').classList.remove('show'); }
+
+async function confirmerEncaissement(){
+  var btn=document.getElementById('enc-save');
+  var no=document.getElementById('enc-no').value;
+  var d=document.getElementById('enc-date').value;
+  var m=parseFloat(document.getElementById('enc-montant').value);
+  if(!d){ alert('Date requise.'); return; }
+  if(isNaN(m)||m===0){ alert('Montant requis.'); return; }
+  btn.disabled=true; btn.textContent='…';
+  try{
+    await gsApi({action:'marquerPayee', NoFacture:no, DatePaiement:d,
+                 CompteFinancier:document.getElementById('enc-compte').value, Montant:m});
+    fermerModalEnc();
+    await chargerFactures();
+    chargé.db=0;   // le tableau de bord doit être rechargé
+  }catch(e){ alert('Erreur : '+e.message); }
+  finally{ btn.disabled=false; btn.textContent='Encaisser'; }
+}
+
+async function devirerFacture(no){
+  if(!confirm('Annuler l\'encaissement de '+no+' ?\n\nLa date de paiement sera effacée et l\'écriture 9090 supprimée du journal.')) return;
+  try{ await gsApi({action:'devirerFacture', NoFacture:no}); await chargerFactures(); chargé.db=0; }
   catch(e){ alert('Erreur : '+e.message); }
 }
 
