@@ -15,7 +15,7 @@
   /* Crédit / positif (vert-comptable) */
   --green:#0F6E56;--green-bg:rgba(15,110,86,0.08);--green-bd:rgba(15,110,86,0.28);
   /* Débit / négatif (brique) + fiscal (ocre) + info */
-  --amber:#9A6B12;--red:#A23B2D;--red-bg:rgba(162,59,45,0.08);--red-bd:rgba(162,59,45,0.28);--blue:#2D6CB5;
+  --amber:#9A6B12;--amber-bg:rgba(154,107,18,0.08);--amber-bd:rgba(154,107,18,0.30);--red:#A23B2D;--red-bg:rgba(162,59,45,0.08);--red-bd:rgba(162,59,45,0.28);--blue:#2D6CB5;
   /* Accent MARINE (ex-purple) : wordmark, blocs forts, highlights */
   --pur:#1E3A5F;--pur-bg:#E7ECF3;--pur-bd:#C9D5E5;
   /* Typo IBM Plex : --syne=UI/corps, --serif=titres, --mono=données */
@@ -70,6 +70,26 @@ table.resizable{table-layout:fixed}
 table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
 .pos{color:var(--green)}.neg{color:var(--red)}
 .tag{font-size:9px;padding:2px 6px;border-radius:3px;background:var(--s3);color:var(--muted)}
+/* ---- Ventilation depliable (tableaux de bord) ---- */
+.pv-parent{cursor:pointer}
+.pv-parent:hover{background:var(--s2)}
+.chev{display:inline-block;width:11px;margin-right:5px;color:var(--dim);transition:transform .12s}
+.chev.on{transform:rotate(90deg);color:var(--pur)}
+.pv-axe td{background:var(--s1);padding:6px 10px 6px 26px;border-bottom:1px solid var(--border)}
+.chip{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.06em;margin-left:6px;padding:3px 8px;border-radius:3px;background:var(--s3);color:var(--muted);border:1px solid var(--border);cursor:pointer}
+.chip:hover{color:var(--text)}
+.chip.on{background:var(--pur-bg);color:var(--pur);border-color:var(--pur-bd);font-weight:700}
+.pv-drill{background:var(--s1);cursor:pointer}
+.pv-drill:hover{background:var(--s2)}
+.pv-drill td{color:var(--muted)}
+.pv-drill td:first-child{padding-left:28px}
+.pv-drill td:first-child:hover{color:var(--pur);text-decoration:underline}
+.bdg{font-family:var(--mono);font-size:8px;letter-spacing:.04em;padding:2px 6px;border-radius:3px;margin-left:8px;white-space:nowrap}
+.bdg-ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
+.bdg-warn{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd)}
+/* ---- Barre de filtre du journal ---- */
+.fbar{display:none;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--pur-bg);border:1px solid var(--pur-bd);border-radius:4px;font-family:var(--mono);font-size:10px;color:var(--pur)}
+.fbar.on{display:flex}
 .empty{padding:2rem;text-align:center;color:var(--muted);font-family:var(--mono);font-size:11px}
 
 /* Formulaires inline */
@@ -126,13 +146,13 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
 <div id="app" class="hidden">
   <div class="nav">
     <div class="nav-logo">MD<em>Compta</em></div>
-    <button class="nav-tab active" data-tab="journal" onclick="showTab('journal')">Journal</button>
-    <button class="nav-tab" data-tab="souscomptes" onclick="showTab('souscomptes')">Sous-comptes</button>
-    <button class="nav-tab" data-tab="comptes" onclick="showTab('comptes')">Comptes</button>
+    <button class="nav-tab active" data-tab="dash" onclick="showTab('dash')">Tableaux de bord</button>
     <button class="nav-tab" data-tab="factu" onclick="showTab('factu')">Facturation</button>
-    <button class="nav-tab" data-tab="immo" onclick="showTab('immo')">Immobilisations</button>
+    <button class="nav-tab" data-tab="journal" onclick="showTab('journal')">Journal</button>
+    <button class="nav-tab" data-tab="comptes" onclick="showTab('comptes')">Comptes</button>
+    <button class="nav-tab" data-tab="souscomptes" onclick="showTab('souscomptes')">Sous-comptes</button>
     <button class="nav-tab" data-tab="concil" onclick="showTab('concil')">Conciliation</button>
-    <button class="nav-tab" data-tab="dash" onclick="showTab('dash')">Tableaux de bord</button>
+    <button class="nav-tab" data-tab="immo" onclick="showTab('immo')">Immobilisations</button>
     <div class="nav-right">
       <div class="sync"><span class="sync-dot" id="dot"></span><span class="sync-status" id="status">…</span></div>
       <button class="btn" onclick="deconnecter()">Clé</button>
@@ -141,13 +161,70 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
 
   <div class="wrap">
 
+    <!-- ===== TABLEAUX DE BORD ===== -->
+    <section id="tab-dash">
+      <div class="sec">Tableaux de bord
+        <div class="sec-actions">
+          <select class="inp" id="db-annee" style="width:auto;padding:6px 10px" onchange="chargerDashboards()"><option value="2025">2025</option><option value="2026">2026</option></select>
+          <button class="btn btn-g" onclick="chargerDashboards()">Rafraîchir</button>
+        </div>
+      </div>
+
+      <div class="sec" style="border:none;margin-bottom:6px">Impôts — à mettre de côté</div>
+      <div id="db-impots" class="addcard"><div class="empty">Chargement…</div></div>
+
+      <div class="sec" style="border:none;margin:1.2rem 0 6px">Taxes TPS/TVQ — net à remettre par trimestre</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Trimestre</th><th class="num">TPS perçue</th><th class="num">CTI</th><th class="num">Net TPS</th><th class="num">TVQ perçue</th><th class="num">RTI</th><th class="num">Net TVQ</th><th class="num">À remettre</th><th class="num">Payé</th><th class="num">Solde</th></tr></thead>
+        <tbody id="db-taxes"><tr><td colspan="10" class="empty">Chargement…</td></tr></tbody>
+      </table></div>
+
+      <div class="sec" style="border:none;margin:1.2rem 0 6px">Revenus / Dépenses (sous-totaux par mois)</div>
+      <div class="tbl-wrap"><table id="db-revdep-t">
+        <thead id="db-revdep-h"></thead>
+        <tbody id="db-revdep"><tr><td class="empty">Chargement…</td></tr></tbody>
+      </table></div>
+
+      <div class="sec" style="border:none;margin:1.2rem 0 6px">Transferts / Paiements (par mois)</div>
+      <div class="tbl-wrap"><table id="db-transf-t">
+        <thead id="db-transf-h"></thead>
+        <tbody id="db-transf"><tr><td class="empty">Chargement…</td></tr></tbody>
+      </table></div>
+    </section>
+    <!-- ===== FACTURATION ===== -->
+    <section id="tab-factu" class="hidden">
+      <div class="sec">Facturation</div>
+      <div class="addcard">
+        <div class="addgrid">
+          <div class="fld"><label class="lbl">Date facturation</label><input class="inp" id="fa-date" type="date"></div>
+          <div class="fld"><label class="lbl">Nº facture</label><input class="inp" id="fa-no" placeholder="ex: F-2026-001"></div>
+          <div class="fld"><label class="lbl">Client</label><input class="inp" id="fa-client" placeholder="ex: DR Lemire"></div>
+          <div class="fld"><label class="lbl">Description</label><input class="inp" id="fa-desc" placeholder="ex: Consultation"></div>
+          <div class="fld"><label class="lbl">Sous-compte</label><input class="inp" id="fa-sc" value="4000"></div>
+          <div class="fld"><label class="lbl">Montant</label><input class="inp" id="fa-montant" type="number" step="0.01" placeholder="ex: 12072.38"></div>
+          <div class="fld"><label class="lbl">Base</label><select class="inp" id="fa-base"><option value="TTC">TTC (total)</option><option value="ST">ST (sous-total)</option></select></div>
+          <div class="fld"><label class="lbl">Date paiement (option.)</label><input class="inp" id="fa-paie" type="date"></div>
+          <div class="fld"><button class="btn btn-p" onclick="ajouterFacture()">+ Ajouter</button></div>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Facturation</th><th>Nº</th><th>Client</th><th>Description</th><th class="num">Sous-total</th><th class="num">TPS</th><th class="num">TVQ</th><th class="num">Total</th><th>Statut</th><th>Paiement</th></tr></thead>
+          <tbody id="fa-body"><tr><td colspan="10" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
     <!-- ===== JOURNAL ===== -->
-    <section id="tab-journal">
+    <section id="tab-journal" class="hidden">
       <div class="sec">Journal
         <div class="sec-actions">
           <button class="btn btn-g" onclick="reconstruire()">Reconstruire</button>
           <button class="btn btn-p" onclick="ouvrirModal()">+ Nouvelle écriture</button>
         </div>
+      </div>
+      <div class="fbar" id="j-fbar">
+        <span id="j-fbar-txt"></span>
+        <button class="btn" style="padding:3px 8px" onclick="effacerFiltreJournal()">Tout afficher</button>
       </div>
       <div class="tbl-wrap">
         <table>
@@ -161,7 +238,25 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
         </table>
       </div>
     </section>
-
+    <!-- ===== COMPTES FINANCIERS ===== -->
+    <section id="tab-comptes" class="hidden">
+      <div class="sec">Comptes financiers</div>
+      <div class="addcard">
+        <div class="addgrid">
+          <div class="fld"><label class="lbl">Nom</label><input class="inp" id="cf-nom" placeholder="ex: Banque - épargne"></div>
+          <div class="fld"><label class="lbl">Type</label><input class="inp" id="cf-type" placeholder="Banque / Carte / Marge / Placement"></div>
+          <div class="fld"><label class="lbl">Solde d'ouverture</label><input class="inp" id="cf-solde" type="number" placeholder="0"></div>
+          <div class="fld"><label class="lbl">Date d'ouverture</label><input class="inp" id="cf-date" type="date"></div>
+          <div class="fld"><button class="btn btn-p" onclick="ajouterCompte()">+ Ajouter</button></div>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Nom du compte</th></tr></thead>
+          <tbody id="cf-body"><tr><td class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
     <!-- ===== SOUS-COMPTES ===== -->
     <section id="tab-souscomptes" class="hidden">
       <div class="sec">Sous-comptes</div>
@@ -185,73 +280,6 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
         </table>
       </div>
     </section>
-
-    <!-- ===== COMPTES FINANCIERS ===== -->
-    <section id="tab-comptes" class="hidden">
-      <div class="sec">Comptes financiers</div>
-      <div class="addcard">
-        <div class="addgrid">
-          <div class="fld"><label class="lbl">Nom</label><input class="inp" id="cf-nom" placeholder="ex: Banque - épargne"></div>
-          <div class="fld"><label class="lbl">Type</label><input class="inp" id="cf-type" placeholder="Banque / Carte / Marge / Placement"></div>
-          <div class="fld"><label class="lbl">Solde d'ouverture</label><input class="inp" id="cf-solde" type="number" placeholder="0"></div>
-          <div class="fld"><label class="lbl">Date d'ouverture</label><input class="inp" id="cf-date" type="date"></div>
-          <div class="fld"><button class="btn btn-p" onclick="ajouterCompte()">+ Ajouter</button></div>
-        </div>
-      </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>Nom du compte</th></tr></thead>
-          <tbody id="cf-body"><tr><td class="empty">Chargement…</td></tr></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- ===== IMMOBILISATIONS ===== -->
-    <section id="tab-factu" class="hidden">
-      <div class="sec">Facturation</div>
-      <div class="addcard">
-        <div class="addgrid">
-          <div class="fld"><label class="lbl">Date facturation</label><input class="inp" id="fa-date" type="date"></div>
-          <div class="fld"><label class="lbl">Nº facture</label><input class="inp" id="fa-no" placeholder="ex: F-2026-001"></div>
-          <div class="fld"><label class="lbl">Client</label><input class="inp" id="fa-client" placeholder="ex: DR Lemire"></div>
-          <div class="fld"><label class="lbl">Description</label><input class="inp" id="fa-desc" placeholder="ex: Consultation"></div>
-          <div class="fld"><label class="lbl">Sous-compte</label><input class="inp" id="fa-sc" value="4000"></div>
-          <div class="fld"><label class="lbl">Montant</label><input class="inp" id="fa-montant" type="number" step="0.01" placeholder="ex: 12072.38"></div>
-          <div class="fld"><label class="lbl">Base</label><select class="inp" id="fa-base"><option value="TTC">TTC (total)</option><option value="ST">ST (sous-total)</option></select></div>
-          <div class="fld"><label class="lbl">Date paiement (option.)</label><input class="inp" id="fa-paie" type="date"></div>
-          <div class="fld"><button class="btn btn-p" onclick="ajouterFacture()">+ Ajouter</button></div>
-        </div>
-      </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>Facturation</th><th>Nº</th><th>Client</th><th>Description</th><th class="num">Sous-total</th><th class="num">TPS</th><th class="num">TVQ</th><th class="num">Total</th><th>Statut</th><th>Paiement</th></tr></thead>
-          <tbody id="fa-body"><tr><td colspan="10" class="empty">Chargement…</td></tr></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section id="tab-immo" class="hidden">
-      <div class="sec">Immobilisations</div>
-      <div class="addcard">
-        <div class="addgrid">
-          <div class="fld"><label class="lbl">Date</label><input class="inp" id="im-date" type="date"></div>
-          <div class="fld"><label class="lbl">Description</label><input class="inp" id="im-desc" placeholder="ex: Ordinateur portable"></div>
-          <div class="fld"><label class="lbl">Catégorie</label><input class="inp" id="im-cat" placeholder="Matériel informatique"></div>
-          <div class="fld"><label class="lbl">Coût (net taxes)</label><input class="inp" id="im-cout" type="number" placeholder="0"></div>
-          <div class="fld"><label class="lbl">Compte financier</label><select class="inp" id="im-compte"></select></div>
-          <div class="fld"><label class="lbl">Taux DPA</label><input class="inp" id="im-dpa" placeholder="à déterminer"></div>
-          <div class="fld"><label class="lbl">Note</label><input class="inp" id="im-note" placeholder="taxes, classe…"></div>
-          <div class="fld"><button class="btn btn-p" onclick="ajouterImmo()">+ Ajouter</button></div>
-        </div>
-      </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr><th>Date</th><th>Description</th><th>Catégorie</th><th class="num">Coût</th><th>Compte</th><th>DPA</th><th>Note</th></tr></thead>
-          <tbody id="im-body"><tr><td colspan="7" class="empty">Chargement…</td></tr></tbody>
-        </table>
-      </div>
-    </section>
-
     <!-- ===== CONCILIATION ===== -->
     <section id="tab-concil" class="hidden">
       <div class="sec">Conciliation bancaire
@@ -288,36 +316,27 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
         </table>
       </div>
     </section>
-
-    <!-- ===== TABLEAUX DE BORD ===== -->
-    <section id="tab-dash" class="hidden">
-      <div class="sec">Tableaux de bord
-        <div class="sec-actions">
-          <select class="inp" id="db-annee" style="width:auto;padding:6px 10px" onchange="chargerDashboards()"><option value="2025">2025</option><option value="2026">2026</option></select>
-          <button class="btn btn-g" onclick="chargerDashboards()">Rafraîchir</button>
+    <!-- ===== IMMOBILISATIONS ===== -->
+    <section id="tab-immo" class="hidden">
+      <div class="sec">Immobilisations</div>
+      <div class="addcard">
+        <div class="addgrid">
+          <div class="fld"><label class="lbl">Date</label><input class="inp" id="im-date" type="date"></div>
+          <div class="fld"><label class="lbl">Description</label><input class="inp" id="im-desc" placeholder="ex: Ordinateur portable"></div>
+          <div class="fld"><label class="lbl">Catégorie</label><input class="inp" id="im-cat" placeholder="Matériel informatique"></div>
+          <div class="fld"><label class="lbl">Coût (net taxes)</label><input class="inp" id="im-cout" type="number" placeholder="0"></div>
+          <div class="fld"><label class="lbl">Compte financier</label><select class="inp" id="im-compte"></select></div>
+          <div class="fld"><label class="lbl">Taux DPA</label><input class="inp" id="im-dpa" placeholder="à déterminer"></div>
+          <div class="fld"><label class="lbl">Note</label><input class="inp" id="im-note" placeholder="taxes, classe…"></div>
+          <div class="fld"><button class="btn btn-p" onclick="ajouterImmo()">+ Ajouter</button></div>
         </div>
       </div>
-
-      <div class="sec" style="border:none;margin-bottom:6px">Impôts — à mettre de côté</div>
-      <div id="db-impots" class="addcard"><div class="empty">Chargement…</div></div>
-
-      <div class="sec" style="border:none;margin:1.2rem 0 6px">Taxes TPS/TVQ — net à remettre par trimestre</div>
-      <div class="tbl-wrap"><table>
-        <thead><tr><th>Trimestre</th><th class="num">TPS perçue</th><th class="num">CTI</th><th class="num">Net TPS</th><th class="num">TVQ perçue</th><th class="num">RTI</th><th class="num">Net TVQ</th><th class="num">À remettre</th><th class="num">Payé</th><th class="num">Solde</th></tr></thead>
-        <tbody id="db-taxes"><tr><td colspan="10" class="empty">Chargement…</td></tr></tbody>
-      </table></div>
-
-      <div class="sec" style="border:none;margin:1.2rem 0 6px">Revenus / Dépenses (sous-totaux par mois)</div>
-      <div class="tbl-wrap"><table id="db-revdep-t">
-        <thead id="db-revdep-h"></thead>
-        <tbody id="db-revdep"><tr><td class="empty">Chargement…</td></tr></tbody>
-      </table></div>
-
-      <div class="sec" style="border:none;margin:1.2rem 0 6px">Transferts / Paiements (par mois)</div>
-      <div class="tbl-wrap"><table id="db-transf-t">
-        <thead id="db-transf-h"></thead>
-        <tbody id="db-transf"><tr><td class="empty">Chargement…</td></tr></tbody>
-      </table></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Description</th><th>Catégorie</th><th class="num">Coût</th><th>Compte</th><th>DPA</th><th>Note</th></tr></thead>
+          <tbody id="im-body"><tr><td colspan="7" class="empty">Chargement…</td></tr></tbody>
+        </table>
+      </div>
     </section>
 
   </div>
@@ -403,7 +422,7 @@ async function initApp(){
   ]);
   SOUSCOMPTES=r[0]||{}; COMPTES=r[1]||[]; PLAN=(r[2]&&r[2].lignes)||[];
   remplirOptions();
-  showTab('journal');
+  showTab('dash');
   rendreRedimensionnable(document.querySelector('#tab-journal table'));
 }
 function remplirOptions(){
@@ -475,10 +494,42 @@ function showTab(tab){
   if(tab==='dash' && !chargé.db){ chargerDashboards(); chargé.db=1; }
 }
 
+/* Filtre actif venant d'un clic dans la ventilation du tableau de bord. */
+var FILTRE_JOURNAL=null;
+
+function cleAxe(l,axe){
+  if(axe==='tiers')  return (String(l.Tiers||'').trim()||'(sans tiers)');
+  if(axe==='compte') return (String(l.CompteFinancier||'').trim()||'(sans compte)');
+  return '';
+}
+function majBarreFiltre(){
+  var bar=document.getElementById('j-fbar'), txt=document.getElementById('j-fbar-txt');
+  if(!FILTRE_JOURNAL){ bar.classList.remove('on'); return; }
+  var F=FILTRE_JOURNAL;
+  var nomAxe=(F.axe==='tiers')?'Tiers':'Compte financier';
+  var nomSC=(SOUSCOMPTES[F.sc]&&SOUSCOMPTES[F.sc].nom)||'';
+  txt.innerHTML='Filtre : <b>'+esc(F.sc)+(nomSC?' '+esc(nomSC):'')+'</b> · '+nomAxe+' = <b>'+esc(F.cle)+'</b>';
+  bar.classList.add('on');
+}
+function effacerFiltreJournal(){ FILTRE_JOURNAL=null; chargerJournal(); }
+function allerAuJournal(sc,axe,cle){
+  if(cle==='(facturé)'){ showTab('factu'); return; }
+  FILTRE_JOURNAL={sc:String(sc),axe:axe,cle:cle};
+  showTab('journal');
+}
+
 async function chargerJournal(){
   var tb=document.getElementById('journal-body');
+  majBarreFiltre();
   try{
-    var r=await gsApi({action:'getJournal',limite:300}); var ls=(r&&r.lignes)||[];
+    var r=await gsApi({action:'getJournal',limite:2000}); var ls=(r&&r.lignes)||[];
+    if(FILTRE_JOURNAL){
+      var F=FILTRE_JOURNAL;
+      ls=ls.filter(function(l){
+        var sc=String(l.SousCompte||'').trim().split(/\s+/)[0];
+        return sc===F.sc && cleAxe(l,F.axe)===F.cle;
+      });
+    }
     if(!ls.length){ tb.innerHTML='<tr><td colspan="11" class="empty">Aucune écriture.</td></tr>'; return; }
     tb.innerHTML='';
     ls.reverse().forEach(function(l){
@@ -589,8 +640,8 @@ async function chargerDashboards(){
     var d=await gsApi({action:'tableauxBord',annee:annee});
     rendreImpots(d.impots);
     rendreTaxes(d.taxes);
-    rendrePivot('db-revdep-h','db-revdep', d.revDep, 'Revenus / Dépenses');
-    rendrePivot('db-transf-h','db-transf', d.transferts, 'Transferts');
+    rendrePivot('db-revdep-h','db-revdep', d.revDep, 'tiers');
+    rendrePivot('db-transf-h','db-transf', d.transferts, 'compte');
   }catch(e){ document.getElementById('db-impots').innerHTML='<div class="empty">Erreur : '+esc(e.message)+'</div>'; }
 }
 function rendreImpots(im){
@@ -626,25 +677,88 @@ function rendreTaxes(tx){
   tr.innerHTML='<td style="font-weight:700">Année</td><td class="num">'+fmt(tot.tpsPercue)+'</td><td class="num">'+fmt(tot.cti)+'</td><td class="num">'+fmt(tot.netTps)+'</td><td class="num">'+fmt(tot.tvqPercue)+'</td><td class="num">'+fmt(tot.rti)+'</td><td class="num">'+fmt(tot.netTvq)+'</td><td class="num" style="font-weight:800;color:var(--pur)">'+fmt(tot.netTotal)+'</td><td class="num" style="font-weight:700">'+fmt(tot.paye)+'</td>'+soldeHtml(tot.solde);
   tb.appendChild(tr);
 }
-function rendrePivot(idHead,idBody,lignes,titre){
-  var head=document.getElementById(idHead), body=document.getElementById(idBody);
-  var hh='<tr><th>Sous-compte</th>'; MOIS3.forEach(function(m){ hh+='<th class="num">'+m+'</th>'; }); hh+='<th class="num">Total</th></tr>';
+/* ---- Pivot avec ventilation dépliable ----
+   Clic sur une ligne de sous-compte : déplie la ventilation.
+   Axe par défaut : Tiers pour les revenus/dépenses, Compte financier pour les transferts.
+   Clic sur une ligne de ventilation : ouvre le Journal filtré sur (sous-compte, axe, valeur).
+   Les sous-comptes à deux jambes (9050/9060/9065) portent un badge de contrôle :
+   total = 0 -> « équilibré » ; total != 0 -> « jambe manquante ». */
+var PIVOTS={}, VENT={};
+function cle_(idBody,no){ return idBody+'|'+no; }
+function etatVent(idBody,no){
+  var k=cle_(idBody,no);
+  if(!VENT[k]) VENT[k]={ouvert:false, axe:(PIVOTS[idBody]&&PIVOTS[idBody].axe)||'tiers'};
+  return VENT[k];
+}
+function basculerVent(idBody,no){ var e=etatVent(idBody,no); e.ouvert=!e.ouvert; dessinerPivot(idBody); }
+function changerAxe(idBody,no,axe){ var e=etatVent(idBody,no); e.axe=axe; e.ouvert=true; dessinerPivot(idBody); }
+
+function rendrePivot(idHead,idBody,lignes,axeDefaut){
+  var head=document.getElementById(idHead);
+  var hh='<tr><th>Sous-compte</th>'; MOIS3.forEach(function(m){ hh+='<th class="num">'+m+'</th>'; });
+  hh+='<th class="num">Total</th></tr>';
   head.innerHTML=hh;
-  if(!lignes||!lignes.length){ body.innerHTML='<tr><td colspan="14" class="empty">Aucune donnée.</td></tr>'; return; }
+  PIVOTS[idBody]={lignes:lignes||[], axe:axeDefaut||'tiers'};
+  dessinerPivot(idBody);
+}
+
+function chipAxe(idBody,no,axe,libelle,actif){
+  return '<button class="chip'+(actif===axe?' on':'')+'" onclick="event.stopPropagation();changerAxe(\''+idBody+'\',\''+no+'\',\''+axe+'\')">'+libelle+'</button>';
+}
+
+function dessinerPivot(idBody){
+  var P=PIVOTS[idBody], body=document.getElementById(idBody);
+  var lignes=P.lignes;
+  if(!lignes.length){ body.innerHTML='<tr><td colspan="14" class="empty">Aucune donnée.</td></tr>'; return; }
   body.innerHTML='';
   var totMois=new Array(12).fill(0), totGen=0;
+
   lignes.forEach(function(l){
-    var tr=document.createElement('tr');
-    var c='<td>'+esc(l.no)+' '+esc(l.nom)+'</td>';
+    var e=etatVent(idBody,l.no);
+
+    var badge='';
+    if(l.deuxJambes){
+      badge = l.equilibre
+        ? ' <span class="bdg bdg-ok">équilibré</span>'
+        : ' <span class="bdg bdg-warn">jambe manquante</span>';
+    }
+    var tr=document.createElement('tr'); tr.className='pv-parent';
+    var c='<td><span class="chev'+(e.ouvert?' on':'')+'">▸</span>'+esc(l.no)+' '+esc(l.nom)+badge+'</td>';
     for(var i=0;i<12;i++){ var v=l.mois[i]; totMois[i]+=v; c+='<td class="num '+(v?cls(v):'')+'">'+(v?fmt(v):'')+'</td>'; }
     c+='<td class="num" style="font-weight:700">'+fmt(l.total)+'</td>'; totGen+=l.total;
-    tr.innerHTML=c; body.appendChild(tr);
+    tr.innerHTML=c;
+    tr.onclick=function(){ basculerVent(idBody,l.no); };
+    body.appendChild(tr);
+    if(!e.ouvert) return;
+
+    var ta=document.createElement('tr'); ta.className='pv-axe';
+    ta.innerHTML='<td colspan="14"><span style="color:var(--dim)">Ventiler par</span>'+
+      chipAxe(idBody,l.no,'tiers','Tiers',e.axe)+
+      chipAxe(idBody,l.no,'compte','Compte financier',e.axe)+'</td>';
+    body.appendChild(ta);
+
+    var vent=(l.ventilation && l.ventilation[e.axe]) || [];
+    if(!vent.length){
+      var tv=document.createElement('tr'); tv.className='pv-drill';
+      tv.innerHTML='<td colspan="14" class="empty">Aucune ventilation sur cet axe.</td>';
+      body.appendChild(tv); return;
+    }
+    vent.forEach(function(v){
+      var t2=document.createElement('tr'); t2.className='pv-drill';
+      var c2='<td>↳ '+esc(v.cle)+'</td>';
+      for(var i=0;i<12;i++){ var x=v.mois[i]; c2+='<td class="num '+(x?cls(x):'')+'">'+(x?fmt(x):'')+'</td>'; }
+      c2+='<td class="num">'+fmt(v.total)+'</td>';
+      t2.innerHTML=c2;
+      t2.onclick=function(ev){ ev.stopPropagation(); allerAuJournal(l.no, e.axe, v.cle); };
+      body.appendChild(t2);
+    });
   });
-  var tr=document.createElement('tr'); tr.style.borderTop='2px solid var(--border)';
-  var c='<td style="font-weight:700">Total</td>';
-  for(var i=0;i<12;i++){ c+='<td class="num" style="font-weight:700">'+(totMois[i]?fmt(totMois[i]):'')+'</td>'; }
-  c+='<td class="num" style="font-weight:800;color:var(--pur)">'+fmt(totGen)+'</td>';
-  tr.innerHTML=c; body.appendChild(tr);
+
+  var trT=document.createElement('tr'); trT.style.borderTop='2px solid var(--border)';
+  var ct='<td style="font-weight:700">Total</td>';
+  for(var i=0;i<12;i++){ ct+='<td class="num" style="font-weight:700">'+(totMois[i]?fmt(totMois[i]):'')+'</td>'; }
+  ct+='<td class="num" style="font-weight:800;color:var(--pur)">'+fmt(totGen)+'</td>';
+  trT.innerHTML=ct; body.appendChild(trT);
 }
 
 /* ---- Colonnes redimensionnables ----
