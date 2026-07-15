@@ -53,6 +53,12 @@ em{font-style:normal;color:var(--pur)}
 /* Layout */
 .wrap{max-width:1200px;margin:0 auto;padding:1.5rem}
 .sec{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.poscard{border:1px solid var(--pur-bd);background:var(--pur-bg);border-radius:8px;padding:14px 16px;margin-bottom:18px;max-width:460px}
+.poscard .pl{display:flex;justify-content:space-between;font-size:12px;padding:3px 0;color:var(--text)}
+.poscard .pl .v{font-family:var(--mono)}
+.poscard .pnet{display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;padding-top:8px;border-top:1px solid var(--pur-bd)}
+.poscard .pnet .lbl2{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--pur)}
+.poscard .pnet .val{font-family:var(--mono);font-size:17px;font-weight:800}
 .sec-actions{display:flex;gap:6px}
 
 /* Table */
@@ -240,6 +246,12 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
     </section>
     <!-- ===== COMPTES FINANCIERS ===== -->
     <section id="tab-comptes" class="hidden">
+      <div class="sec">Position actionnaire</div>
+      <div class="poscard" id="pos-card">
+        <div class="pl"><span>Apports de capital (9070)</span><span class="v" id="pos-apports">—</span></div>
+        <div class="pl"><span>Dépenses perso à rembourser</span><span class="v" id="pos-perso">—</span></div>
+        <div class="pnet"><span class="lbl2" id="pos-lbl">La compagnie vous doit</span><span class="val" id="pos-net">—</span></div>
+      </div>
       <div class="sec">Comptes financiers</div>
       <div class="addcard">
         <div class="addgrid">
@@ -623,7 +635,20 @@ async function ajouterSousCompte(){
   catch(e){ alert('Erreur : '+e.message); }
 }
 
+async function chargerPositionActionnaire(){
+  try{
+    var r=await gsApi({action:'positionActionnaire'}); if(!r) return;
+    document.getElementById('pos-apports').textContent=fmt(r.apports);
+    document.getElementById('pos-perso').textContent=fmt(r.depensesPerso);
+    var net=r.net||0, lbl=document.getElementById('pos-lbl'), val=document.getElementById('pos-net');
+    val.textContent=fmt(Math.abs(net));
+    if(net>=0){ lbl.textContent='La compagnie vous doit'; val.style.color='var(--green)'; }
+    else{ lbl.textContent='Vous devez à la compagnie'; val.style.color='var(--red)'; }
+  }catch(e){}
+}
+
 async function chargerComptesTable(){
+  chargerPositionActionnaire();
   var tb=document.getElementById('cf-body');
   var r=await gsApi({action:'soldesComptes'}); var cs=(r&&r.comptes)||[];
   COMPTES=cs.map(function(c){ return c.nom; }); remplirOptions();
