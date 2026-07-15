@@ -252,8 +252,11 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Nom du compte</th></tr></thead>
-          <tbody id="cf-body"><tr><td class="empty">Chargement…</td></tr></tbody>
+          <thead><tr>
+            <th>Compte</th><th>Type</th>
+            <th class="num">Ouverture</th><th class="num">Mouvements</th><th class="num">Solde</th>
+          </tr></thead>
+          <tbody id="cf-body"><tr><td class="empty" colspan="5">Chargement…</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -621,9 +624,26 @@ async function ajouterSousCompte(){
 }
 
 async function chargerComptesTable(){
-  var tb=document.getElementById('cf-body'); var cf=await gsApi({action:'getComptesFinanciers'}); COMPTES=cf||[]; remplirOptions();
-  if(!COMPTES.length){ tb.innerHTML='<tr><td class="empty">Aucun compte.</td></tr>'; return; }
-  tb.innerHTML=''; COMPTES.forEach(function(n){ var tr=document.createElement('tr'); tr.innerHTML='<td>'+esc(n)+'</td>'; tb.appendChild(tr); });
+  var tb=document.getElementById('cf-body');
+  var r=await gsApi({action:'soldesComptes'}); var cs=(r&&r.comptes)||[];
+  COMPTES=cs.map(function(c){ return c.nom; }); remplirOptions();
+  if(!cs.length){ tb.innerHTML='<tr><td class="empty" colspan="5">Aucun compte.</td></tr>'; return; }
+  tb.innerHTML='';
+  cs.forEach(function(c){
+    var tr=document.createElement('tr');
+    var libelle=esc(c.nom);
+    // Indice de lecture pour l'avance actionnaire (compte bilan cumulatif)
+    if(/avance actionnaire/i.test(c.nom)){
+      libelle+=' <span class="tag" title="Position nette cumulée, toutes années">'+
+               (c.solde>=0?'compagnie vous doit':'vous devez à la cie')+'</span>';
+    }
+    tr.innerHTML='<td>'+libelle+'</td>'+
+      '<td style="color:var(--muted)">'+esc(c.type||'')+'</td>'+
+      '<td class="num">'+(c.ouverture?fmt(c.ouverture):'—')+'</td>'+
+      '<td class="num '+(c.mouvements?cls(c.mouvements):'')+'">'+(c.mouvements?fmt(c.mouvements):'—')+'</td>'+
+      '<td class="num" style="font-weight:700;'+(c.solde?('color:'+(c.solde>=0?'var(--green)':'var(--red)')):'')+'">'+fmt(c.solde)+'</td>';
+    tb.appendChild(tr);
+  });
 }
 async function ajouterCompte(){
   var p={action:'ajouterCompteFinancier',Nom:document.getElementById('cf-nom').value.trim(),Type:document.getElementById('cf-type').value.trim(),
