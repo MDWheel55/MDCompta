@@ -355,7 +355,7 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
       <div class="sec">Position actionnaire</div>
       <div class="poscard" id="pos-card">
         <div class="pl"><span>Apports de capital (9070)</span><span class="v" id="pos-apports">—</span></div>
-        <div class="pl"><span>Dépenses perso à rembourser</span><span class="v" id="pos-perso">—</span></div>
+        <div class="pl"><span>Dépenses cie payées au perso (à te rembourser)</span><span class="v" id="pos-perso">—</span></div>
         <div class="pnet"><span class="lbl2" id="pos-lbl">La compagnie vous doit</span><span class="val" id="pos-net">—</span></div>
       </div>
       <div class="sec">Comptes financiers</div>
@@ -856,8 +856,10 @@ async function chargerComptesTable(){
     var libelle=esc(c.nom);
     // Indice de lecture pour l'avance actionnaire (compte bilan cumulatif)
     if(/avance actionnaire/i.test(c.nom)){
-      libelle+=' <span class="tag" title="Position nette cumulée, toutes années">'+
-               (c.solde>=0?'compagnie vous doit':'vous devez à la cie')+'</span>';
+      // Dépenses payées perso = écritures négatives sur ce compte :
+      // solde négatif -> la compagnie te doit ; positif -> tu dois à la cie.
+      libelle+=' <span class="tag" title="Dépenses perso cumulées, toutes années">'+
+               (c.solde<0?'la cie vous doit':(c.solde>0?'vous devez à la cie':'à jour'))+'</span>';
     }
     tr.innerHTML='<td>'+libelle+'</td>'+
       '<td style="color:var(--muted)">'+esc(c.type||'')+'</td>'+
