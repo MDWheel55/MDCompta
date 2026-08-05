@@ -153,6 +153,7 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
   <div class="nav">
     <div class="nav-logo">MD<em>Compta</em></div>
     <button class="nav-tab active" data-tab="dash" onclick="showTab('dash')">Tableaux de bord</button>
+    <button class="nav-tab" data-tab="temps" onclick="showTab('temps')">Temps</button>
     <button class="nav-tab" data-tab="factu" onclick="showTab('factu')">Facturation</button>
     <button class="nav-tab" data-tab="journal" onclick="showTab('journal')">Journal</button>
     <button class="nav-tab" data-tab="comptes" onclick="showTab('comptes')">Comptes</button>
@@ -195,6 +196,70 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
       <div class="tbl-wrap"><table id="db-transf-t">
         <thead id="db-transf-h"></thead>
         <tbody id="db-transf"><tr><td class="empty">Chargement…</td></tr></tbody>
+      </table></div>
+    </section>
+    <!-- ===== TEMPS ===== -->
+    <section id="tab-temps" class="hidden">
+      <div class="sec">Temps
+        <div class="sec-actions">
+          <button class="btn" onclick="basculerRef()">Référentiels</button>
+          <button class="btn" onclick="ouvrirModalKm()">Km du mois</button>
+          <button class="btn btn-g" onclick="ouvrirModalImport()">Importer d'Outlook</button>
+          <button class="btn btn-g" onclick="ouvrirModalFacturer()">Facturer</button>
+          <button class="btn btn-p" onclick="ouvrirModalTemps()">+ Saisie manuelle</button>
+        </div>
+      </div>
+
+      <div id="tp-cartes" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:1rem"></div>
+
+      <!-- Référentiels (repliables) -->
+      <div id="tp-ref" class="hidden">
+        <div class="sec" style="border:none;margin-bottom:6px">Référentiels — clients (distance aller-retour)</div>
+        <div class="addcard">
+          <div class="addgrid">
+            <div class="fld"><label class="lbl">Client</label><input class="inp" id="rc-client" placeholder="ex: Bois Laurentide"></div>
+            <div class="fld"><label class="lbl">Alias (séparés par ,)</label><input class="inp" id="rc-alias" placeholder="ex: bois, laurentide"></div>
+            <div class="fld"><label class="lbl">Distance A/R (km)</label><input class="inp" id="rc-km" type="number" step="0.1" placeholder="0"></div>
+            <div class="fld"><button class="btn btn-p" onclick="ajouterRefClient()">+ Ajouter</button></div>
+          </div>
+        </div>
+        <div class="tbl-wrap" style="margin-bottom:1.2rem"><table>
+          <thead><tr><th>Client</th><th>Alias (détection Outlook)</th><th class="num">Distance A/R (km)</th><th></th></tr></thead>
+          <tbody id="rc-body"><tr><td colspan="4" class="empty">Chargement…</td></tr></tbody>
+        </table></div>
+
+        <div class="sec" style="border:none;margin-bottom:6px">Référentiels — projets (taux horaire)</div>
+        <div class="addcard">
+          <div class="addgrid">
+            <div class="fld"><label class="lbl">Projet</label><input class="inp" id="rp-projet" placeholder="ex: 2026 - BoisLaurentide"></div>
+            <div class="fld"><label class="lbl">Client</label><select class="inp" id="rp-client"></select></div>
+            <div class="fld"><label class="lbl">Taux horaire</label><input class="inp" id="rp-taux" type="number" step="0.01" placeholder="0"></div>
+            <div class="fld"><button class="btn btn-p" onclick="ajouterRefProjet()">+ Ajouter</button></div>
+          </div>
+        </div>
+        <div class="tbl-wrap" style="margin-bottom:1.2rem"><table>
+          <thead><tr><th>Projet</th><th>Client</th><th class="num">Taux</th><th>Actif</th><th></th></tr></thead>
+          <tbody id="rp-body"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
+        </table></div>
+
+        <div class="addcard" style="max-width:440px">
+          <div class="addgrid">
+            <div class="fld"><label class="lbl">Taux au km (allocation 5020)</label><input class="inp" id="ref-tauxkm" type="number" step="0.01"></div>
+            <div class="fld"><button class="btn btn-p" onclick="sauverTauxKm()">Enregistrer</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="addcard">
+        <div class="addgrid">
+          <div class="fld"><label class="lbl">Client</label><select class="inp" id="tp-f-client" onchange="rendreTemps()"><option value="">Tous</option></select></div>
+          <div class="fld"><label class="lbl">Statut</label><select class="inp" id="tp-f-statut" onchange="rendreTemps()"><option value="">Tous</option><option>Non facturé</option><option>Facturé</option></select></div>
+          <div class="fld"><button class="btn btn-g" onclick="chargerTemps()">Rafraîchir</button></div>
+        </div>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Date</th><th>Client</th><th>Projet</th><th>Plage</th><th class="num">Heures</th><th class="num">Taux</th><th class="num">Montant</th><th>Lieu</th><th class="num">Km</th><th>Statut</th><th>Facture</th><th></th></tr></thead>
+        <tbody id="tp-body"><tr><td colspan="12" class="empty">Chargement…</td></tr></tbody>
       </table></div>
     </section>
     <!-- ===== FACTURATION ===== -->
@@ -373,6 +438,95 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
     <div class="modal-actions">
       <button class="btn" onclick="fermerModalEnc()">Annuler</button>
       <button class="btn btn-p" id="enc-save" onclick="confirmerEncaissement()">Encaisser</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== MODAL : saisie manuelle de temps ====== -->
+<div class="modal-bg" id="modal-tp">
+  <div class="modal">
+    <div class="modal-title">Saisie de temps</div>
+    <div class="row2">
+      <div class="mfld"><label class="lbl">Date</label><input class="inp" id="tp-date" type="date"></div>
+      <div class="mfld"><label class="lbl">Projet</label><select class="inp" id="tp-projet" onchange="majProjetTemps()"></select></div>
+    </div>
+    <div class="row2">
+      <div class="mfld"><label class="lbl">Début</label><input class="inp" id="tp-debut" type="time" onchange="majHeuresTemps()"></div>
+      <div class="mfld"><label class="lbl">Fin</label><input class="inp" id="tp-fin" type="time" onchange="majHeuresTemps()"></div>
+    </div>
+    <div class="row2">
+      <div class="mfld"><label class="lbl">Heures</label><input class="inp" id="tp-heures" type="number" step="0.25"></div>
+      <div class="mfld"><label class="lbl">Taux horaire</label><input class="inp" id="tp-taux" type="number" step="0.01"></div>
+    </div>
+    <div class="mfld"><label class="lbl">Lieu</label><select class="inp" id="tp-lieu"><option>En entreprise</option><option>Distance</option></select><div class="hint" id="tp-km-hint"></div></div>
+    <div class="mfld"><label class="lbl">Note</label><input class="inp" id="tp-note" placeholder="optionnel"></div>
+    <div class="modal-btns">
+      <button class="btn" onclick="fermerModalTemps()">Annuler</button>
+      <button class="btn btn-p" id="tp-save" onclick="enregistrerTemps()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== MODAL : import Outlook (ICS) ====== -->
+<div class="modal-bg" id="modal-imp">
+  <div class="modal" style="max-width:880px">
+    <div class="modal-title">Importer d'Outlook</div>
+    <div class="addgrid" style="margin-bottom:10px">
+      <div class="fld"><label class="lbl">Depuis</label><input class="inp" id="imp-depuis" type="date"></div>
+      <div class="fld"><button class="btn btn-g" id="imp-chercher" onclick="chargerCandidats()">Chercher</button></div>
+    </div>
+    <p class="hint" style="color:var(--muted)">Seuls les événements « Client - Projet » non annulés, non récurrents et pas déjà importés sont proposés. « distance » dans le titre = télétravail.</p>
+    <div class="tbl-wrap" style="margin-top:8px"><table>
+      <thead><tr><th><input type="checkbox" id="imp-tous" onchange="cocherTous(this.checked)"></th><th>Date</th><th>Plage</th><th class="num">H</th><th>Client</th><th>Projet</th><th>Lieu</th><th class="num">Km</th></tr></thead>
+      <tbody id="imp-body"><tr><td colspan="8" class="empty">Choisis une date puis « Chercher ».</td></tr></tbody>
+    </table></div>
+    <div class="modal-btns">
+      <button class="btn" onclick="fermerModalImport()">Fermer</button>
+      <button class="btn btn-p" id="imp-save" onclick="importerSelection()">Importer la sélection</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== MODAL : facturer les heures ====== -->
+<div class="modal-bg" id="modal-fact">
+  <div class="modal" style="max-width:720px">
+    <div class="modal-title">Facturer les heures</div>
+    <div class="addgrid" style="margin-bottom:10px">
+      <div class="fld"><label class="lbl">Client</label><select class="inp" id="ft-client"></select></div>
+      <div class="fld"><label class="lbl">Du</label><input class="inp" id="ft-d1" type="date"></div>
+      <div class="fld"><label class="lbl">Au</label><input class="inp" id="ft-d2" type="date"></div>
+      <div class="fld"><button class="btn btn-g" onclick="apercuFacturation()">Aperçu</button></div>
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Date</th><th>Projet</th><th>Plage</th><th class="num">H</th><th class="num">Taux</th><th class="num">Montant</th></tr></thead>
+      <tbody id="ft-body"><tr><td colspan="6" class="empty">Choisis un client et une période, puis « Aperçu ».</td></tr></tbody>
+    </table></div>
+    <div id="ft-recap" style="margin-top:10px"></div>
+    <div class="row2" style="margin-top:10px">
+      <div class="mfld"><label class="lbl">Nº facture</label><input class="inp" id="ft-no" placeholder="ex: FMD2026-005"></div>
+      <div class="mfld"><label class="lbl">Date facturation</label><input class="inp" id="ft-date" type="date"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn" onclick="fermerModalFacturer()">Fermer</button>
+      <button class="btn" id="ft-copier" onclick="copierDetailFacture()" style="display:none">Copier le détail</button>
+      <button class="btn btn-p" id="ft-save" onclick="confirmerFacturation()">Créer la facture</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== MODAL : kilométrage du mois (5020) ====== -->
+<div class="modal-bg" id="modal-km">
+  <div class="modal">
+    <div class="modal-title">Kilométrage du mois — écriture 5020</div>
+    <div class="addgrid" style="margin-bottom:10px">
+      <div class="fld"><label class="lbl">Mois</label><input class="inp" id="km-mois" type="month"></div>
+      <div class="fld"><button class="btn btn-g" onclick="apercuKm()">Aperçu</button></div>
+    </div>
+    <div id="km-recap" class="empty">Choisis un mois puis « Aperçu ».</div>
+    <p class="hint">Crée UNE écriture Dépenses / 5020 (HT) sur « Avance actionnaire », datée du dernier jour du mois, Pièce KM-AAAA-MM. À lancer en fin de mois.</p>
+    <div class="modal-btns">
+      <button class="btn" onclick="fermerModalKm()">Fermer</button>
+      <button class="btn btn-p" id="km-save" onclick="confirmerKm()">Comptabiliser</button>
     </div>
   </div>
 </div>
@@ -566,6 +720,7 @@ function showTab(tab){
   if(tab==='immo' && !chargé.im){ chargerImmoTable(); chargé.im=1; }
   if(tab==='concil' && !chargé.co){ initConcil(); chargé.co=1; }
   if(tab==='dash' && !chargé.db){ chargerDashboards(); chargé.db=1; }
+  if(tab==='temps' && !chargé.tp){ initTemps(); chargé.tp=1; }
 }
 
 /* Filtre actif venant d'un clic dans la ventilation du tableau de bord. */
@@ -921,6 +1076,401 @@ async function enregistrer(){
   try{ await gsApi(p); fermerModal(); await chargerJournal(); }
   catch(e){ alert('Erreur : '+e.message); } finally{ btn.disabled=false; btn.textContent='Enregistrer'; }
 }
+
+/* ==================== MODULE TEMPS ==================== */
+/* POST JSON (Content-Type text/plain : pas de préflight CORS, pas de limite d'URL).
+   Utilisé pour les payloads longs (import, facturation). */
+async function gsApiPost(params){
+  try{
+    setStatus(null,'Synchro…');
+    const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(Object.assign({token:TOKEN},params))});
+    const data=await res.json();
+    if(!data.ok) throw new Error(data.error||'Erreur');
+    setStatus(true,'✓ Synchronisé'); return data.data;
+  }catch(e){ setStatus(false,'⚠ '+e.message); throw e; }
+}
+
+var REF={clients:[],projets:[],tauxKm:0.72};
+var TEMPS_LIGNES=[];
+var FT_APERCU=null, FT_DERNIERE=null;
+
+async function initTemps(){
+  await chargerReferentiels();
+  await chargerTemps();
+}
+
+/* ---- Référentiels ---- */
+function basculerRef(){ document.getElementById('tp-ref').classList.toggle('hidden'); }
+
+async function chargerReferentiels(){
+  try{
+    REF=await gsApi({action:'getReferentiels'})||REF;
+    rendreRefTables();
+    remplirSelectsTemps();
+    document.getElementById('ref-tauxkm').value=REF.tauxKm;
+  }catch(e){
+    document.getElementById('rc-body').innerHTML='<tr><td colspan="4" class="empty">Erreur : '+esc(e.message)+'</td></tr>';
+  }
+}
+
+function rendreRefTables(){
+  var cb=document.getElementById('rc-body');
+  if(!REF.clients.length){ cb.innerHTML='<tr><td colspan="4" class="empty">Aucun client — lance initModuleTemps() dans l\'éditeur.</td></tr>'; }
+  else{
+    cb.innerHTML='';
+    REF.clients.forEach(function(c,i){
+      var tr=document.createElement('tr');
+      tr.innerHTML='<td>'+esc(c.client)+'</td>'+
+        '<td><input class="inp" id="rc-a-'+i+'" value="'+esc(c.alias)+'" style="min-width:220px"></td>'+
+        '<td class="num"><input class="inp num" id="rc-d-'+i+'" type="number" step="0.1" value="'+(c.distanceKm||0)+'" style="width:90px;text-align:right"></td>'+
+        '<td><button class="btn" onclick="sauverRefClient('+i+')">Sauver</button></td>';
+      cb.appendChild(tr);
+    });
+  }
+  var pb=document.getElementById('rp-body');
+  if(!REF.projets.length){ pb.innerHTML='<tr><td colspan="5" class="empty">Aucun projet.</td></tr>'; }
+  else{
+    pb.innerHTML='';
+    REF.projets.forEach(function(p,i){
+      var opts=REF.clients.map(function(c){ return '<option'+(c.client===p.client?' selected':'')+'>'+esc(c.client)+'</option>'; }).join('');
+      var tr=document.createElement('tr');
+      tr.innerHTML='<td>'+esc(p.projet)+'</td>'+
+        '<td><select class="inp" id="rp-c-'+i+'">'+opts+'</select></td>'+
+        '<td class="num"><input class="inp" id="rp-t-'+i+'" type="number" step="0.01" value="'+(p.taux||0)+'" style="width:90px;text-align:right"></td>'+
+        '<td><select class="inp" id="rp-a-'+i+'"><option'+(p.actif?' selected':'')+'>OUI</option><option'+(!p.actif?' selected':'')+'>NON</option></select></td>'+
+        '<td><button class="btn" onclick="sauverRefProjet('+i+')">Sauver</button></td>';
+      pb.appendChild(tr);
+    });
+  }
+}
+
+async function sauverRefClient(i){
+  var c=REF.clients[i]; if(!c) return;
+  try{
+    await gsApi({action:'modifierRefClient',Client:c.client,
+      Alias:document.getElementById('rc-a-'+i).value,
+      DistanceKm:document.getElementById('rc-d-'+i).value});
+    await chargerReferentiels();
+  }catch(e){ alert('Erreur : '+e.message); }
+}
+async function sauverRefProjet(i){
+  var p=REF.projets[i]; if(!p) return;
+  try{
+    await gsApi({action:'modifierRefProjet',Projet:p.projet,
+      Client:document.getElementById('rp-c-'+i).value,
+      TauxHoraire:document.getElementById('rp-t-'+i).value,
+      Actif:document.getElementById('rp-a-'+i).value});
+    await chargerReferentiels();
+  }catch(e){ alert('Erreur : '+e.message); }
+}
+async function ajouterRefClient(){
+  var nom=document.getElementById('rc-client').value.trim();
+  if(!nom){ alert('Nom du client requis.'); return; }
+  try{
+    await gsApi({action:'ajouterRefClient',Client:nom,
+      Alias:document.getElementById('rc-alias').value.trim(),
+      DistanceKm:document.getElementById('rc-km').value});
+    ['rc-client','rc-alias','rc-km'].forEach(function(id){document.getElementById(id).value='';});
+    await chargerReferentiels();
+  }catch(e){ alert('Erreur : '+e.message); }
+}
+async function ajouterRefProjet(){
+  var nom=document.getElementById('rp-projet').value.trim();
+  if(!nom){ alert('Nom du projet requis.'); return; }
+  try{
+    await gsApi({action:'ajouterRefProjet',Projet:nom,
+      Client:document.getElementById('rp-client').value,
+      TauxHoraire:document.getElementById('rp-taux').value});
+    ['rp-projet','rp-taux'].forEach(function(id){document.getElementById(id).value='';});
+    await chargerReferentiels();
+  }catch(e){ alert('Erreur : '+e.message); }
+}
+async function sauverTauxKm(){
+  try{
+    await gsApi({action:'setParametre',Cle:'TauxKm',Valeur:document.getElementById('ref-tauxkm').value});
+    await chargerReferentiels();
+  }catch(e){ alert('Erreur : '+e.message); }
+}
+
+function remplirSelectsTemps(){
+  var fc=document.getElementById('tp-f-client');
+  var cur=fc.value; fc.innerHTML='<option value="">Tous</option>';
+  REF.clients.forEach(function(c){ var o=document.createElement('option'); o.value=c.client; o.textContent=c.client; fc.appendChild(o); });
+  fc.value=cur;
+  var ftc=document.getElementById('ft-client'); ftc.innerHTML='';
+  REF.clients.forEach(function(c){ var o=document.createElement('option'); o.value=c.client; o.textContent=c.client; ftc.appendChild(o); });
+  var tp=document.getElementById('tp-projet'); tp.innerHTML='';
+  REF.projets.filter(function(p){ return p.actif; }).forEach(function(p){
+    var o=document.createElement('option'); o.value=p.projet; o.textContent=p.projet+' — '+p.client; tp.appendChild(o); });
+}
+
+/* ---- Table + cartes ---- */
+async function chargerTemps(){
+  var tb=document.getElementById('tp-body');
+  try{
+    var r=await gsApi({action:'getTemps'});
+    TEMPS_LIGNES=(r&&r.lignes)||[];
+    if(r&&r.tauxKm) REF.tauxKm=r.tauxKm;
+    rendreTemps();
+  }catch(e){ tb.innerHTML='<tr><td colspan="12" class="empty">Erreur : '+esc(e.message)+'</td></tr>'; }
+}
+
+function rendreTemps(){
+  var tb=document.getElementById('tp-body');
+  var fc=document.getElementById('tp-f-client').value;
+  var fs=document.getElementById('tp-f-statut').value;
+  var ls=TEMPS_LIGNES.filter(function(l){
+    if(fc&&l.client!==fc) return false;
+    if(fs&&l.statut!==fs) return false;
+    return true;
+  });
+
+  // Cartes : totaux non facturés + km du mois courant
+  var hNF=0,mNF=0,kmMois=0,hMois=0;
+  var mc=new Date().toISOString().slice(0,7);
+  TEMPS_LIGNES.forEach(function(l){
+    if(l.statut!=='Facturé'){ hNF+=l.heures; mNF+=l.montant; }
+    if(l.date.slice(0,7)===mc){ hMois+=l.heures; if(l.lieu==='En entreprise') kmMois+=l.km; }
+  });
+  document.getElementById('tp-cartes').innerHTML=
+    bloc('Heures non facturées', fmt(hNF)+' h', 'tous clients')+
+    bloc('Montant non facturé', fmt(mNF)+' $', 'sous-total HT')+
+    bloc('Heures du mois', fmt(hMois)+' h', mc)+
+    bloc('Km du mois (en entreprise)', fmt(kmMois)+' km', '× '+REF.tauxKm+' $/km = '+fmt(kmMois*REF.tauxKm)+' $');
+
+  if(!ls.length){ tb.innerHTML='<tr><td colspan="12" class="empty">Aucune entrée de temps.</td></tr>'; return; }
+  tb.innerHTML='';
+  ls.forEach(function(l){
+    var st=(l.statut==='Facturé')
+      ? '<span class="tag" style="color:var(--green)">Facturé</span>'
+      : '<span class="tag" style="color:var(--amber)">Non facturé</span>';
+    var act=(l.statut==='Facturé')?'':'<button class="btn" style="padding:2px 6px;font-size:9px" title="Supprimer" onclick="supprimerTemps(\''+esc(l.uid)+'\')">✕</button>';
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+esc(l.date)+'</td><td>'+esc(l.client)+'</td><td>'+esc(l.projet)+'</td>'+
+      '<td>'+esc(l.debut&&l.fin?(l.debut+'–'+l.fin):'')+'</td>'+
+      '<td class="num">'+fmt(l.heures)+'</td><td class="num">'+fmt(l.taux)+'</td><td class="num">'+fmt(l.montant)+'</td>'+
+      '<td>'+esc(l.lieu)+'</td><td class="num">'+(l.km?fmt(l.km):'')+'</td>'+
+      '<td>'+st+'</td><td>'+esc(l.noFacture)+'</td><td>'+act+'</td>';
+    tb.appendChild(tr);
+  });
+}
+
+async function supprimerTemps(uid){
+  if(!confirm('Supprimer cette entrée de temps ?')) return;
+  try{ await gsApi({action:'supprimerTemps',UID:uid}); await chargerTemps(); }
+  catch(e){ alert('Erreur : '+e.message); }
+}
+
+/* ---- Saisie manuelle ---- */
+function ouvrirModalTemps(){
+  if(!REF.projets.length){ alert('Ajoute d\'abord un projet dans les Référentiels.'); return; }
+  document.getElementById('tp-date').value=new Date().toISOString().slice(0,10);
+  ['tp-debut','tp-fin','tp-heures','tp-note'].forEach(function(id){document.getElementById(id).value='';});
+  majProjetTemps();
+  document.getElementById('modal-tp').classList.add('show');
+}
+function fermerModalTemps(){ document.getElementById('modal-tp').classList.remove('show'); }
+function majProjetTemps(){
+  var nom=document.getElementById('tp-projet').value;
+  var p=REF.projets.filter(function(x){ return x.projet===nom; })[0];
+  if(p){ document.getElementById('tp-taux').value=p.taux||0; majKmHint(p.client); }
+}
+function majKmHint(client){
+  var c=REF.clients.filter(function(x){ return x.client===client; })[0];
+  var h=document.getElementById('tp-km-hint');
+  h.textContent=(c&&c.distanceKm)?('En entreprise = '+c.distanceKm+' km A/R ajoutés au mois.'):'';
+}
+function majHeuresTemps(){
+  var d=document.getElementById('tp-debut').value, f=document.getElementById('tp-fin').value;
+  if(!d||!f) return;
+  var m=( (parseInt(f.slice(0,2))*60+parseInt(f.slice(3))) - (parseInt(d.slice(0,2))*60+parseInt(d.slice(3))) );
+  if(m<0) m+=24*60;
+  document.getElementById('tp-heures').value=Math.round((m/60)*4)/4;
+}
+async function enregistrerTemps(){
+  var btn=document.getElementById('tp-save');
+  var p={action:'ajouterTemps',
+    Date:document.getElementById('tp-date').value,
+    Projet:document.getElementById('tp-projet').value,
+    Debut:document.getElementById('tp-debut').value,
+    Fin:document.getElementById('tp-fin').value,
+    Heures:document.getElementById('tp-heures').value,
+    Taux:document.getElementById('tp-taux').value,
+    Lieu:document.getElementById('tp-lieu').value,
+    Note:document.getElementById('tp-note').value};
+  if(!p.Date){ alert('Date requise.'); return; }
+  if(!p.Heures&&(!p.Debut||!p.Fin)){ alert('Heures OU début/fin requis.'); return; }
+  btn.disabled=true; btn.textContent='…';
+  try{ await gsApi(p); fermerModalTemps(); await chargerTemps(); }
+  catch(e){ alert('Erreur : '+e.message); }
+  finally{ btn.disabled=false; btn.textContent='Enregistrer'; }
+}
+
+/* ---- Import Outlook ---- */
+var IMP_CAND=[];
+function ouvrirModalImport(){
+  document.getElementById('imp-depuis').value='2026-08-01';
+  document.getElementById('imp-body').innerHTML='<tr><td colspan="8" class="empty">Choisis une date puis « Chercher ».</td></tr>';
+  IMP_CAND=[];
+  document.getElementById('modal-imp').classList.add('show');
+}
+function fermerModalImport(){ document.getElementById('modal-imp').classList.remove('show'); }
+
+async function chargerCandidats(){
+  var btn=document.getElementById('imp-chercher');
+  var tb=document.getElementById('imp-body');
+  btn.disabled=true; btn.textContent='…';
+  try{
+    var r=await gsApi({action:'icsCandidats',depuis:document.getElementById('imp-depuis').value});
+    IMP_CAND=(r&&r.candidats)||[];
+    if(!IMP_CAND.length){ tb.innerHTML='<tr><td colspan="8" class="empty">Aucun événement « Client - Projet » à importer.</td></tr>'; return; }
+    tb.innerHTML='';
+    IMP_CAND.forEach(function(c,i){
+      var proj=esc(c.projet)+(c.projetConnu?'':' <span class="tag" style="color:var(--amber)">projet inconnu</span>');
+      var tr=document.createElement('tr');
+      tr.innerHTML='<td><input type="checkbox" id="imp-x-'+i+'"'+(c.projetConnu?' checked':'')+'></td>'+
+        '<td>'+esc(c.date)+'</td><td>'+esc(c.debut+'–'+c.fin)+'</td><td class="num">'+fmt(c.heures)+'</td>'+
+        '<td>'+esc(c.client)+'</td><td>'+proj+'</td>'+
+        '<td><select class="inp" id="imp-l-'+i+'" style="padding:4px 6px"><option'+(c.lieu==='En entreprise'?' selected':'')+'>En entreprise</option><option'+(c.lieu==='Distance'?' selected':'')+'>Distance</option></select></td>'+
+        '<td class="num">'+(c.km?fmt(c.km):'')+'</td>';
+      tb.appendChild(tr);
+    });
+  }catch(e){ tb.innerHTML='<tr><td colspan="8" class="empty">Erreur : '+esc(e.message)+'</td></tr>'; }
+  finally{ btn.disabled=false; btn.textContent='Chercher'; }
+}
+function cocherTous(on){ IMP_CAND.forEach(function(_,i){ var x=document.getElementById('imp-x-'+i); if(x) x.checked=on; }); }
+
+async function importerSelection(){
+  var sel=[];
+  IMP_CAND.forEach(function(c,i){
+    var x=document.getElementById('imp-x-'+i);
+    if(!x||!x.checked) return;
+    sel.push({uid:c.uid,date:c.date,debut:c.debut,fin:c.fin,heures:c.heures,
+      client:c.client,projet:c.projet,taux:c.taux,
+      lieu:document.getElementById('imp-l-'+i).value});
+  });
+  if(!sel.length){ alert('Aucune ligne cochée.'); return; }
+  var btn=document.getElementById('imp-save');
+  btn.disabled=true; btn.textContent='…';
+  try{
+    var r=await gsApiPost({action:'importerTemps',lignes:sel});
+    alert((r.importees||0)+' entrée(s) importée(s)'+(r.doublons?', '+r.doublons+' doublon(s) ignoré(s)':'')+'.');
+    fermerModalImport();
+    await chargerTemps();
+  }catch(e){ alert('Erreur : '+e.message); }
+  finally{ btn.disabled=false; btn.textContent='Importer la sélection'; }
+}
+
+/* ---- Facturation des heures ---- */
+function ouvrirModalFacturer(){
+  if(!REF.clients.length){ alert('Aucun client dans les Référentiels.'); return; }
+  var now=new Date();
+  var d1=new Date(now.getFullYear(),now.getMonth(),1);
+  document.getElementById('ft-d1').value=d1.toISOString().slice(0,10);
+  document.getElementById('ft-d2').value=now.toISOString().slice(0,10);
+  document.getElementById('ft-date').value=now.toISOString().slice(0,10);
+  document.getElementById('ft-no').value='';
+  document.getElementById('ft-body').innerHTML='<tr><td colspan="6" class="empty">Choisis un client et une période, puis « Aperçu ».</td></tr>';
+  document.getElementById('ft-recap').innerHTML='';
+  document.getElementById('ft-copier').style.display='none';
+  FT_APERCU=null; FT_DERNIERE=null;
+  document.getElementById('modal-fact').classList.add('show');
+}
+function fermerModalFacturer(){ document.getElementById('modal-fact').classList.remove('show'); }
+
+async function apercuFacturation(){
+  var tb=document.getElementById('ft-body');
+  try{
+    var r=await gsApi({action:'facturerTempsApercu',
+      Client:document.getElementById('ft-client').value,
+      dateDebut:document.getElementById('ft-d1').value,
+      dateFin:document.getElementById('ft-d2').value});
+    FT_APERCU=r;
+    var ls=(r&&r.lignes)||[];
+    if(!ls.length){ tb.innerHTML='<tr><td colspan="6" class="empty">Aucune entrée non facturée sur cette période.</td></tr>';
+      document.getElementById('ft-recap').innerHTML=''; return; }
+    tb.innerHTML='';
+    ls.forEach(function(l){
+      var tr=document.createElement('tr');
+      tr.innerHTML='<td>'+esc(l.date)+'</td><td>'+esc(l.projet)+'</td><td>'+esc(l.debut&&l.fin?(l.debut+'–'+l.fin):'')+'</td>'+
+        '<td class="num">'+fmt(l.heures)+'</td><td class="num">'+fmt(l.taux)+'</td><td class="num">'+fmt(l.montant)+'</td>';
+      tb.appendChild(tr);
+    });
+    var t=r.totaux;
+    var tps=Math.round(t.montant*0.05*100)/100, tvq=Math.round(t.montant*0.09975*100)/100;
+    document.getElementById('ft-recap').innerHTML='<div class="addcard" style="font-family:var(--mono);font-size:12px">'+
+      t.entrees+' entrée(s) · <b>'+fmt(t.heures)+' h</b> · sous-total <b>'+fmt(t.montant)+' $</b>'+
+      ' · TPS '+fmt(tps)+' · TVQ '+fmt(tvq)+' · total <b>'+fmt(t.montant+tps+tvq)+' $</b></div>';
+  }catch(e){ tb.innerHTML='<tr><td colspan="6" class="empty">Erreur : '+esc(e.message)+'</td></tr>'; }
+}
+
+async function confirmerFacturation(){
+  if(!FT_APERCU||!FT_APERCU.lignes||!FT_APERCU.lignes.length){ alert('Fais d\'abord un aperçu.'); return; }
+  var no=document.getElementById('ft-no').value.trim();
+  if(!no){ alert('Nº de facture requis.'); return; }
+  var btn=document.getElementById('ft-save');
+  btn.disabled=true; btn.textContent='…';
+  try{
+    var r=await gsApiPost({action:'facturerTemps',
+      Client:document.getElementById('ft-client').value,
+      dateDebut:document.getElementById('ft-d1').value,
+      dateFin:document.getElementById('ft-d2').value,
+      NoFacture:no,
+      DateFacturation:document.getElementById('ft-date').value});
+    FT_DERNIERE={no:no,client:document.getElementById('ft-client').value,lignes:FT_APERCU.lignes,totaux:FT_APERCU.totaux};
+    document.getElementById('ft-recap').innerHTML='<div class="addcard" style="border-color:var(--green-bd);font-family:var(--mono);font-size:12px;color:var(--green)">'+
+      '✓ Facture '+esc(r.facture)+' créée — '+r.entrees+' entrée(s), '+fmt(r.heures)+' h, sous-total '+fmt(r.sousTotal)+' $.</div>';
+    document.getElementById('ft-copier').style.display='';
+    chargé.fa=0; chargé.db=0;
+    await chargerTemps();
+  }catch(e){ alert('Erreur : '+e.message); }
+  finally{ btn.disabled=false; btn.textContent='Créer la facture'; }
+}
+
+function copierDetailFacture(){
+  if(!FT_DERNIERE) return;
+  var t='Facture '+FT_DERNIERE.no+' — '+FT_DERNIERE.client+'\n';
+  FT_DERNIERE.lignes.forEach(function(l){
+    t+=l.date+'  '+l.projet+(l.note?' — '+l.note:'')+'  '+l.heures+' h × '+l.taux+' $ = '+l.montant.toFixed(2)+' $\n';
+  });
+  var tt=FT_DERNIERE.totaux;
+  t+='Total : '+tt.heures+' h — '+tt.montant.toFixed(2)+' $ (avant taxes)\n';
+  navigator.clipboard.writeText(t).then(function(){ alert('Détail copié.'); },
+    function(){ prompt('Copie manuellement :',t); });
+}
+
+/* ---- Kilométrage mensuel (5020) ---- */
+function ouvrirModalKm(){
+  document.getElementById('km-mois').value=new Date().toISOString().slice(0,7);
+  document.getElementById('km-recap').innerHTML='Choisis un mois puis « Aperçu ».';
+  document.getElementById('modal-km').classList.add('show');
+}
+function fermerModalKm(){ document.getElementById('modal-km').classList.remove('show'); }
+
+async function apercuKm(){
+  var el=document.getElementById('km-recap');
+  try{
+    var r=await gsApi({action:'kmApercu',mois:document.getElementById('km-mois').value});
+    var avert=r.dejaComptabilise?'<div class="hint">⚠ Déjà au journal (Pièce KM-'+esc(r.mois)+') — supprime l\'écriture pour la refaire.</div>':'';
+    el.innerHTML='<div class="addcard" style="font-family:var(--mono);font-size:12px">'+
+      r.entrees+' entrée(s) « En entreprise » · <b>'+fmt(r.km)+' km</b> × '+r.taux+' $/km = <b>'+fmt(r.montant)+' $</b></div>'+avert;
+  }catch(e){ el.innerHTML='<div class="hint" style="color:var(--red)">Erreur : '+esc(e.message)+'</div>'; }
+}
+
+async function confirmerKm(){
+  var btn=document.getElementById('km-save');
+  btn.disabled=true; btn.textContent='…';
+  try{
+    var r=await gsApi({action:'kmComptabiliser',mois:document.getElementById('km-mois').value});
+    document.getElementById('km-recap').innerHTML='<div class="addcard" style="border-color:var(--green-bd);font-family:var(--mono);font-size:12px;color:var(--green)">'+
+      '✓ '+fmt(r.km)+' km × '+r.taux+' $/km = '+fmt(r.montant)+' $ — écriture 5020 (Pièce '+esc(r.piece)+') créée sur « Avance actionnaire ».</div>';
+    chargé.db=0;
+    await chargerTemps();
+  }catch(e){ alert('Erreur : '+e.message); }
+  finally{ btn.disabled=false; btn.textContent='Comptabiliser'; }
+}
+/* ==================== FIN MODULE TEMPS ==================== */
 
 window.addEventListener('DOMContentLoaded',async function(){
   var s=localStorage.getItem('mdcompta_token');
