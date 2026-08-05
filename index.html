@@ -445,7 +445,7 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
 <!-- ====== MODAL : saisie manuelle de temps ====== -->
 <div class="modal-bg" id="modal-tp">
   <div class="modal">
-    <div class="modal-title">Saisie de temps</div>
+    <div class="modal-title" id="tp-titre">Saisie de temps</div>
     <div class="row2">
       <div class="mfld"><label class="lbl">Date</label><input class="inp" id="tp-date" type="date"></div>
       <div class="mfld"><label class="lbl">Projet</label><select class="inp" id="tp-projet" onchange="majProjetTemps()"></select></div>
@@ -456,7 +456,7 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
     </div>
     <div class="row2">
       <div class="mfld"><label class="lbl">Heures</label><input class="inp" id="tp-heures" type="number" step="0.25"></div>
-      <div class="mfld"><label class="lbl">Taux horaire</label><input class="inp" id="tp-taux" type="number" step="0.01"></div>
+      <div class="mfld"><label class="lbl">Taux horaire (du projet)</label><input class="inp" id="tp-taux" type="number" step="0.01" readonly style="opacity:.7"></div>
     </div>
     <div class="mfld"><label class="lbl">Lieu</label><select class="inp" id="tp-lieu"><option>En entreprise</option><option>Distance</option></select><div class="hint" id="tp-km-hint"></div></div>
     <div class="mfld"><label class="lbl">Note</label><input class="inp" id="tp-note" placeholder="optionnel"></div>
@@ -1152,6 +1152,7 @@ async function sauverRefClient(i){
       Alias:document.getElementById('rc-a-'+i).value,
       DistanceKm:document.getElementById('rc-d-'+i).value});
     await chargerReferentiels();
+    await chargerTemps();
   }catch(e){ alert('Erreur : '+e.message); }
 }
 async function sauverRefProjet(i){
@@ -1162,6 +1163,7 @@ async function sauverRefProjet(i){
       TauxHoraire:document.getElementById('rp-t-'+i).value,
       Actif:document.getElementById('rp-a-'+i).value});
     await chargerReferentiels();
+    await chargerTemps();
   }catch(e){ alert('Erreur : '+e.message); }
 }
 async function ajouterRefClient(){
@@ -1173,6 +1175,7 @@ async function ajouterRefClient(){
       DistanceKm:document.getElementById('rc-km').value});
     ['rc-client','rc-alias','rc-km'].forEach(function(id){document.getElementById(id).value='';});
     await chargerReferentiels();
+    await chargerTemps();
   }catch(e){ alert('Erreur : '+e.message); }
 }
 async function ajouterRefProjet(){
@@ -1184,12 +1187,14 @@ async function ajouterRefProjet(){
       TauxHoraire:document.getElementById('rp-taux').value});
     ['rp-projet','rp-taux'].forEach(function(id){document.getElementById(id).value='';});
     await chargerReferentiels();
+    await chargerTemps();
   }catch(e){ alert('Erreur : '+e.message); }
 }
 async function sauverTauxKm(){
   try{
     await gsApi({action:'setParametre',Cle:'TauxKm',Valeur:document.getElementById('ref-tauxkm').value});
     await chargerReferentiels();
+    await chargerTemps();
   }catch(e){ alert('Erreur : '+e.message); }
 }
 
@@ -1245,7 +1250,9 @@ function rendreTemps(){
     var st=(l.statut==='Facturé')
       ? '<span class="tag" style="color:var(--green)">Facturé</span>'
       : '<span class="tag" style="color:var(--amber)">Non facturé</span>';
-    var act=(l.statut==='Facturé')?'':'<button class="btn" style="padding:2px 6px;font-size:9px" title="Supprimer" onclick="supprimerTemps(\''+esc(l.uid)+'\')">✕</button>';
+    var act=(l.statut==='Facturé')?'':
+      '<button class="btn" style="padding:2px 6px;font-size:9px" title="Modifier" onclick="ouvrirModalTemps(\''+esc(l.uid)+'\')">✎</button> '+
+      '<button class="btn" style="padding:2px 6px;font-size:9px" title="Supprimer" onclick="supprimerTemps(\''+esc(l.uid)+'\')">✕</button>';
     var tr=document.createElement('tr');
     tr.innerHTML='<td>'+esc(l.date)+'</td><td>'+esc(l.client)+'</td><td>'+esc(l.projet)+'</td>'+
       '<td>'+esc(l.debut&&l.fin?(l.debut+'–'+l.fin):'')+'</td>'+
@@ -1263,10 +1270,32 @@ async function supprimerTemps(uid){
 }
 
 /* ---- Saisie manuelle ---- */
-function ouvrirModalTemps(){
+var TP_EDIT_UID=null;
+function ouvrirModalTemps(uid){
   if(!REF.projets.length){ alert('Ajoute d\'abord un projet dans les Référentiels.'); return; }
-  document.getElementById('tp-date').value=new Date().toISOString().slice(0,10);
-  ['tp-debut','tp-fin','tp-heures','tp-note'].forEach(function(id){document.getElementById(id).value='';});
+  TP_EDIT_UID=uid||null;
+  var titre=document.getElementById('tp-titre');
+  if(TP_EDIT_UID){
+    var l=TEMPS_LIGNES.filter(function(x){ return x.uid===TP_EDIT_UID; })[0];
+    if(!l){ alert('Entrée introuvable.'); return; }
+    titre.textContent='Modifier l\'entrée';
+    document.getElementById('tp-date').value=l.date;
+    var sel=document.getElementById('tp-projet');
+    // si le projet de l'entrée n'est plus actif, on l'ajoute quand même à la liste
+    if(!Array.prototype.some.call(sel.options,function(o){ return o.value===l.projet; })){
+      var o=document.createElement('option'); o.value=l.projet; o.textContent=l.projet; sel.appendChild(o);
+    }
+    sel.value=l.projet;
+    document.getElementById('tp-debut').value=l.debut||'';
+    document.getElementById('tp-fin').value=l.fin||'';
+    document.getElementById('tp-heures').value=l.heures||'';
+    document.getElementById('tp-lieu').value=l.lieu||'En entreprise';
+    document.getElementById('tp-note').value=l.note||'';
+  }else{
+    titre.textContent='Saisie de temps';
+    document.getElementById('tp-date').value=new Date().toISOString().slice(0,10);
+    ['tp-debut','tp-fin','tp-heures','tp-note'].forEach(function(id){document.getElementById(id).value='';});
+  }
   majProjetTemps();
   document.getElementById('modal-tp').classList.add('show');
 }
@@ -1290,13 +1319,13 @@ function majHeuresTemps(){
 }
 async function enregistrerTemps(){
   var btn=document.getElementById('tp-save');
-  var p={action:'ajouterTemps',
+  var p={action:(TP_EDIT_UID?'modifierTemps':'ajouterTemps'),
+    UID:TP_EDIT_UID||undefined,
     Date:document.getElementById('tp-date').value,
     Projet:document.getElementById('tp-projet').value,
     Debut:document.getElementById('tp-debut').value,
     Fin:document.getElementById('tp-fin').value,
     Heures:document.getElementById('tp-heures').value,
-    Taux:document.getElementById('tp-taux').value,
     Lieu:document.getElementById('tp-lieu').value,
     Note:document.getElementById('tp-note').value};
   if(!p.Date){ alert('Date requise.'); return; }
