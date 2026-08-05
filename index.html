@@ -282,8 +282,8 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
         </div>
         <div class="sec" style="border:none;margin:1rem 0 6px">Km « En entreprise » par mois</div>
         <div class="tbl-wrap"><table>
-          <thead><tr><th>Mois</th><th class="num">Entrées</th><th class="num">Km</th><th class="num">Montant</th><th></th></tr></thead>
-          <tbody id="tp-km-body"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
+          <thead><tr><th>Mois</th><th class="num">Entrées</th><th class="num">Km</th><th class="num">Montant</th><th>Statut</th><th></th></tr></thead>
+          <tbody id="tp-km-body"><tr><td colspan="6" class="empty">Chargement…</td></tr></tbody>
         </table></div>
         <p class="hint" style="margin-top:8px;color:var(--muted)">Les km ne sont JAMAIS facturés aux clients : voiture perso → allocation. « Comptabiliser » crée UNE écriture Dépenses / 5020 (HT, montant négatif) sur « Avance actionnaire » : la compagnie te doit ce montant au perso. Le remboursement se fait ensuite par transfert bancaire (comme tes autres dépenses perso). Dans le modal, « Copier le compte de dépenses » te donne le détail à joindre à ta demande.</p>
       </div>
@@ -1267,6 +1267,7 @@ async function chargerTemps(){
     var r=await gsApi({action:'getTemps'});
     TEMPS_LIGNES=(r&&r.lignes)||[];
     if(r&&r.tauxKm) REF.tauxKm=r.tauxKm;
+    TP_KM_JOURNAL=(r&&r.kmJournal)||{};
     rendreTemps();
   }catch(e){ tb.innerHTML='<tr><td colspan="12" class="empty">Erreur : '+esc(e.message)+'</td></tr>'; }
 }
@@ -1480,6 +1481,7 @@ function rendreSommaireClients(){
   tb.appendChild(tr);
 }
 
+var TP_KM_JOURNAL={};
 function rendreKmMois(){
   var tb=document.getElementById('tp-km-body');
   var par={};
@@ -1490,14 +1492,26 @@ function rendreKmMois(){
     par[m].n++; par[m].km+=l.km;
   });
   var mois=Object.keys(par).sort().reverse();
-  if(!mois.length){ tb.innerHTML='<tr><td colspan="5" class="empty">Aucun déplacement « En entreprise ».</td></tr>'; return; }
+  if(!mois.length){ tb.innerHTML='<tr><td colspan="6" class="empty">Aucun déplacement « En entreprise ».</td></tr>'; return; }
   tb.innerHTML='';
   mois.forEach(function(m){
     var v=par[m];
+    var calc=Math.round(v.km*REF.tauxKm*100)/100;
+    var jr=TP_KM_JOURNAL[m];
+    var statut, action;
+    if(jr!==undefined){
+      var ecart=Math.round((jr-calc)*100)/100;
+      statut = Math.abs(ecart)<0.01
+        ? '<span class="bdg bdg-ok">Comptabilisé — '+fmt(jr)+' $</span>'
+        : '<span class="bdg bdg-warn" title="Journal '+fmt(jr)+' $ vs calculé '+fmt(calc)+' $">Comptabilisé — écart '+fmt(ecart)+' $</span>';
+      action='';
+    }else{
+      statut='<span class="bdg bdg-warn">À comptabiliser</span>';
+      action='<button class="btn" style="padding:2px 8px;font-size:9px" onclick="ouvrirModalKm(\''+esc(m)+'\')">Comptabiliser…</button>';
+    }
     var tr=document.createElement('tr');
     tr.innerHTML='<td>'+esc(m)+'</td><td class="num">'+v.n+'</td><td class="num">'+fmt(v.km)+'</td>'+
-      '<td class="num">'+fmt(v.km*REF.tauxKm)+'</td>'+
-      '<td><button class="btn" style="padding:2px 8px;font-size:9px" onclick="ouvrirModalKm(\''+esc(m)+'\')">Comptabiliser…</button></td>';
+      '<td class="num">'+fmt(calc)+'</td><td>'+statut+'</td><td>'+action+'</td>';
     tb.appendChild(tr);
   });
 }
@@ -1752,7 +1766,7 @@ async function confirmerKm(){
     document.getElementById('km-recap').innerHTML='<div class="addcard" style="border-color:var(--green-bd);font-family:var(--mono);font-size:12px;color:var(--green)">'+
       '✓ '+fmt(r.km)+' km × '+r.taux+' $/km = '+fmt(r.montant)+' $ — écriture 5020 (Pièce '+esc(r.piece)+') créée sur « Avance actionnaire ».</div>';
     chargé.db=0;
-    await chargerTemps();
+    await chargerTemps();   // recharge aussi kmJournal -> le statut passe à « Comptabilisé »
   }catch(e){ alert('Erreur : '+e.message); }
   finally{ btn.disabled=false; btn.textContent='Comptabiliser'; }
 }
