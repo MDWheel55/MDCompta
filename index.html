@@ -219,8 +219,18 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
 
       <!-- ── SOMMAIRE ── -->
       <div id="tp-sec-som">
-        <div id="tp-cartes" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:1.2rem"></div>
-        <div class="sec" style="border:none;margin-bottom:6px">Non facturé par client</div>
+        <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+          <button class="chip" id="tpper-semaine" onclick="changerPeriodeTemps('semaine')">Cette semaine</button>
+          <button class="chip on" id="tpper-mois" onclick="changerPeriodeTemps('mois')">Ce mois</button>
+          <button class="chip" id="tpper-moisprec" onclick="changerPeriodeTemps('moisprec')">Mois précédent</button>
+          <button class="chip" id="tpper-tout" onclick="changerPeriodeTemps('tout')">Tout</button>
+        </div>
+        <div id="tp-cartes" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:1.2rem"></div>
+        <div class="sec" style="border:none;margin-bottom:6px">Heures par jour</div>
+        <div id="tp-graph" class="addcard" style="overflow-x:auto"></div>
+        <div class="sec" style="border:none;margin:1.2rem 0 6px">Répartition par projet</div>
+        <div id="tp-donut" class="addcard" style="display:flex;gap:24px;align-items:center;flex-wrap:wrap"></div>
+        <div class="sec" style="border:none;margin:1.2rem 0 6px">Non facturé par client (toutes périodes)</div>
         <div class="tbl-wrap"><table>
           <thead><tr><th>Client</th><th class="num">Entrées</th><th class="num">Heures</th><th class="num">Montant (HT)</th><th></th></tr></thead>
           <tbody id="tp-som-body"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
@@ -275,7 +285,7 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
           <thead><tr><th>Mois</th><th class="num">Entrées</th><th class="num">Km</th><th class="num">Montant</th><th></th></tr></thead>
           <tbody id="tp-km-body"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
         </table></div>
-        <p class="hint" style="margin-top:8px;color:var(--muted)">« Comptabiliser » crée UNE écriture Dépenses / 5020 (HT, montant négatif) datée du dernier jour du mois, Pièce KM-AAAA-MM. À lancer en fin de mois.</p>
+        <p class="hint" style="margin-top:8px;color:var(--muted)">Les km ne sont JAMAIS facturés aux clients : voiture perso → allocation. « Comptabiliser » crée UNE écriture Dépenses / 5020 (HT, montant négatif) sur « Avance actionnaire » : la compagnie te doit ce montant au perso. Le remboursement se fait ensuite par transfert bancaire (comme tes autres dépenses perso). Dans le modal, « Copier le compte de dépenses » te donne le détail à joindre à ta demande.</p>
       </div>
 
       <!-- ── JOURNAL DU TEMPS ── -->
@@ -557,6 +567,7 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
     <p class="hint">Crée UNE écriture Dépenses / 5020 (HT) sur « Avance actionnaire », datée du dernier jour du mois, Pièce KM-AAAA-MM. À lancer en fin de mois.</p>
     <div class="modal-btns">
       <button class="btn" onclick="fermerModalKm()">Fermer</button>
+      <button class="btn" id="km-copier" onclick="copierCompteDepenses()" style="display:none">Copier le compte de dépenses</button>
       <button class="btn btn-p" id="km-save" onclick="confirmerKm()">Comptabiliser</button>
     </div>
   </div>
@@ -1270,19 +1281,7 @@ function rendreTemps(){
     return true;
   });
 
-  // Cartes : totaux non facturés + km du mois courant
-  var hNF=0,mNF=0,kmMois=0,hMois=0;
-  var mc=new Date().toISOString().slice(0,7);
-  TEMPS_LIGNES.forEach(function(l){
-    if(l.statut!=='Facturé'){ hNF+=l.heures; mNF+=l.montant; }
-    if(l.date.slice(0,7)===mc){ hMois+=l.heures; if(l.lieu==='En entreprise') kmMois+=l.km; }
-  });
-  document.getElementById('tp-cartes').innerHTML=
-    bloc('Heures non facturées', fmt(hNF)+' h', 'tous clients')+
-    bloc('Montant non facturé', fmt(mNF)+' $', 'sous-total HT')+
-    bloc('Heures du mois', fmt(hMois)+' h', mc)+
-    bloc('Km du mois (en entreprise)', fmt(kmMois)+' km', '× '+REF.tauxKm+' $/km = '+fmt(kmMois*REF.tauxKm)+' $');
-
+  rendreDashboardTemps();
   rendreSommaireClients();
   rendreKmMois();
 
@@ -1303,6 +1302,156 @@ function rendreTemps(){
       '<td>'+st+'</td><td>'+esc(l.noFacture)+'</td><td>'+act+'</td>';
     tb.appendChild(tr);
   });
+}
+
+/* ---- Dashboard du sommaire (façon Clockify) ---- */
+var TP_PERIODE='mois';
+var TP_COULEURS=['#2D6CB5','#0F6E56','#9A6B12','#A23B2D','#1E3A5F','#5B6976','#7A4E9E','#0E7C86'];
+
+function changerPeriodeTemps(p){
+  TP_PERIODE=p;
+  ['semaine','mois','moisprec','tout'].forEach(function(x){
+    document.getElementById('tpper-'+x).classList.toggle('on', x===p);
+  });
+  rendreDashboardTemps();
+}
+
+function _dstr(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function bornesPeriode(){
+  var now=new Date();
+  if(TP_PERIODE==='semaine'){
+    var lundi=new Date(now); lundi.setDate(now.getDate()-((now.getDay()+6)%7));
+    var dim=new Date(lundi); dim.setDate(lundi.getDate()+6);
+    return {d1:_dstr(lundi), d2:_dstr(dim), libelle:'semaine du '+_dstr(lundi)};
+  }
+  if(TP_PERIODE==='mois'){
+    var d1=new Date(now.getFullYear(),now.getMonth(),1), d2=new Date(now.getFullYear(),now.getMonth()+1,0);
+    return {d1:_dstr(d1), d2:_dstr(d2), libelle:d1.getFullYear()+'-'+String(d1.getMonth()+1).padStart(2,'0')};
+  }
+  if(TP_PERIODE==='moisprec'){
+    var p1=new Date(now.getFullYear(),now.getMonth()-1,1), p2=new Date(now.getFullYear(),now.getMonth(),0);
+    return {d1:_dstr(p1), d2:_dstr(p2), libelle:p1.getFullYear()+'-'+String(p1.getMonth()+1).padStart(2,'0')};
+  }
+  return {d1:null, d2:null, libelle:'toutes périodes'};
+}
+
+function rendreDashboardTemps(){
+  var b=bornesPeriode();
+  var ls=TEMPS_LIGNES.filter(function(l){
+    if(b.d1&&l.date<b.d1) return false;
+    if(b.d2&&l.date>b.d2) return false;
+    return true;
+  });
+
+  // Totaux + agrégats par projet et par jour
+  var h=0,m=0,km=0;
+  var parProjet={}, parJour={};
+  ls.forEach(function(l){
+    h+=l.heures; m+=l.montant;
+    if(l.lieu==='En entreprise') km+=l.km;
+    var cp=l.projet+'||'+l.client;
+    if(!parProjet[cp]) parProjet[cp]={projet:l.projet,client:l.client,h:0,m:0};
+    parProjet[cp].h+=l.heures; parProjet[cp].m+=l.montant;
+    if(!parJour[l.date]) parJour[l.date]={};
+    parJour[l.date][cp]=(parJour[l.date][cp]||0)+l.heures;
+  });
+  var projets=Object.keys(parProjet).map(function(k){ return parProjet[k]; })
+    .sort(function(a,b){ return b.h-a.h; });
+  var couleur={};
+  projets.forEach(function(p,i){ couleur[p.projet+'||'+p.client]=TP_COULEURS[i%TP_COULEURS.length]; });
+
+  var topP=projets[0], topC={};
+  projets.forEach(function(p){ topC[p.client]=(topC[p.client]||0)+p.h; });
+  var topClient=Object.keys(topC).sort(function(a,b){ return topC[b]-topC[a]; })[0]||'—';
+
+  // Non facturé (indépendant de la période) pour garder la vue facturation
+  var hNF=0,mNF=0;
+  TEMPS_LIGNES.forEach(function(l){ if(l.statut!=='Facturé'){ hNF+=l.heures; mNF+=l.montant; } });
+
+  document.getElementById('tp-cartes').innerHTML=
+    bloc('Heures — '+b.libelle, fmt(h)+' h', ls.length+' entrée(s)')+
+    bloc('Travail effectué', fmt(m)+' $', 'HT, période')+
+    bloc('Top projet', topP?esc(topP.projet):'—', topP?fmt(topP.h)+' h':'')+
+    bloc('Top client', esc(topClient), topClient!=='—'?fmt(topC[topClient])+' h':'')+
+    bloc('Km (en entreprise)', fmt(km)+' km', fmt(km*REF.tauxKm)+' $ à 5020')+
+    blocFort('Non facturé (total)', fmt(mNF)+' $', fmt(hNF)+' h toutes périodes');
+
+  rendreGraphJours(b, parJour, couleur);
+  rendreDonutProjets(h, projets, couleur);
+}
+
+function rendreGraphJours(b, parJour, couleur){
+  var el=document.getElementById('tp-graph');
+  if(!b.d1){ el.innerHTML='<div class="empty">Graphique disponible pour une période bornée (semaine ou mois).</div>'; return; }
+  var jours=[];
+  var d=new Date(b.d1.slice(0,4), Number(b.d1.slice(5,7))-1, Number(b.d1.slice(8,10)));
+  var fin=new Date(b.d2.slice(0,4), Number(b.d2.slice(5,7))-1, Number(b.d2.slice(8,10)));
+  while(d<=fin){ jours.push(_dstr(d)); d.setDate(d.getDate()+1); }
+
+  var maxH=0;
+  jours.forEach(function(j){
+    var t=0, pj=parJour[j]||{};
+    Object.keys(pj).forEach(function(k){ t+=pj[k]; });
+    if(t>maxH) maxH=t;
+  });
+  if(maxH===0){ el.innerHTML='<div class="empty">Aucune heure sur cette période.</div>'; return; }
+  maxH=Math.max(4, Math.ceil(maxH));
+
+  var bw=16, gap=6, H=150, marge=22;
+  var W=jours.length*(bw+gap)+10;
+  var s='<svg viewBox="0 0 '+W+' '+(H+marge+14)+'" style="width:100%;max-width:'+(W*1.6)+'px;font-family:var(--mono)">';
+  // lignes de repère
+  for(var y=0;y<=maxH;y+=(maxH>10?2:1)){
+    var py=H-(y/maxH)*H;
+    s+='<line x1="0" y1="'+py+'" x2="'+W+'" y2="'+py+'" stroke="#D7DEE5" stroke-width="0.5" stroke-dasharray="3,3"/>';
+    s+='<text x="0" y="'+(py-2)+'" font-size="7" fill="#8A97A3">'+y+'h</text>';
+  }
+  jours.forEach(function(j,i){
+    var x=10+i*(bw+gap);
+    var pj=parJour[j]||{};
+    var cum=0;
+    Object.keys(pj).forEach(function(k){
+      var hh=pj[k];
+      var hb=(hh/maxH)*H;
+      var yb=H-(cum/maxH)*H-hb;
+      s+='<rect x="'+x+'" y="'+yb+'" width="'+bw+'" height="'+hb+'" fill="'+couleur[k]+'" rx="1"><title>'+esc(j)+' — '+esc(k.split('||')[0])+' : '+hh+' h</title></rect>';
+      cum+=hh;
+    });
+    var jn=Number(j.slice(8,10));
+    if(jours.length<=7 || jn%5===0 || jn===1){
+      s+='<text x="'+(x+bw/2)+'" y="'+(H+12)+'" font-size="7" fill="#5B6976" text-anchor="middle">'+jn+'</text>';
+    }
+  });
+  s+='</svg>';
+  el.innerHTML=s;
+}
+
+function rendreDonutProjets(total, projets, couleur){
+  var el=document.getElementById('tp-donut');
+  if(!total||!projets.length){ el.innerHTML='<div class="empty">Aucune heure sur cette période.</div>'; return; }
+  var r=46, C=2*Math.PI*r, off=0;
+  var s='<svg viewBox="0 0 130 130" style="width:150px;flex:none">';
+  projets.forEach(function(p){
+    var f=p.h/total;
+    s+='<circle cx="65" cy="65" r="'+r+'" fill="none" stroke="'+couleur[p.projet+'||'+p.client]+'" stroke-width="20" '+
+       'stroke-dasharray="'+(f*C)+' '+C+'" stroke-dashoffset="'+(-off*C)+'" transform="rotate(-90 65 65)"/>';
+    off+=f;
+  });
+  s+='<text x="65" y="69" text-anchor="middle" font-size="13" font-weight="700" font-family="var(--mono)" fill="#16202B">'+fmt(total)+' h</text></svg>';
+  var lg='<div style="flex:1;min-width:260px;font-family:var(--mono);font-size:11px">';
+  projets.forEach(function(p){
+    var pct=Math.round(p.h/total*1000)/10;
+    lg+='<div style="display:flex;align-items:center;gap:8px;padding:4px 0">'+
+      '<span style="width:9px;height:9px;border-radius:2px;background:'+couleur[p.projet+'||'+p.client]+';flex:none"></span>'+
+      '<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(p.projet)+' <span style="color:var(--dim)">— '+esc(p.client)+'</span></span>'+
+      '<span style="margin-left:auto;flex:none">'+fmt(p.h)+' h</span>'+
+      '<span style="width:110px;height:7px;background:var(--s3);border-radius:3px;flex:none"><span style="display:block;height:7px;width:'+pct+'%;background:'+couleur[p.projet+'||'+p.client]+';border-radius:3px"></span></span>'+
+      '<span style="width:44px;text-align:right;color:var(--muted);flex:none">'+pct+'%</span></div>';
+  });
+  lg+='</div>';
+  el.innerHTML=s+lg;
 }
 
 function rendreSommaireClients(){
@@ -1560,6 +1709,17 @@ function copierDetailFacture(){
     function(){ prompt('Copie manuellement :',t); });
 }
 
+function copierCompteDepenses(){
+  if(!KM_APERCU||!KM_APERCU.detail) return;
+  var r=KM_APERCU;
+  var t='Compte de dépenses — kilométrage '+r.mois+'\n';
+  t+='Véhicule personnel — allocation '+r.taux+' $/km\n\n';
+  r.detail.forEach(function(l){ t+=l.date+'  '+l.client+'  '+l.km+' km\n'; });
+  t+='\nTotal : '+r.km+' km × '+r.taux+' $/km = '+r.montant.toFixed(2)+' $\n';
+  navigator.clipboard.writeText(t).then(function(){ alert('Compte de dépenses copié.'); },
+    function(){ prompt('Copie manuellement :',t); });
+}
+
 /* ---- Kilométrage mensuel (5020) ---- */
 function ouvrirModalKm(mois){
   document.getElementById('km-mois').value=mois||new Date().toISOString().slice(0,7);
@@ -1569,10 +1729,14 @@ function ouvrirModalKm(mois){
 }
 function fermerModalKm(){ document.getElementById('modal-km').classList.remove('show'); }
 
+var KM_APERCU=null;
 async function apercuKm(){
   var el=document.getElementById('km-recap');
+  document.getElementById('km-copier').style.display='none';
   try{
     var r=await gsApi({action:'kmApercu',mois:document.getElementById('km-mois').value});
+    KM_APERCU=r;
+    if(r.km>0) document.getElementById('km-copier').style.display='';
     var avert=r.dejaComptabilise?'<div class="hint">⚠ Déjà au journal (Pièce KM-'+esc(r.mois)+') — supprime l\'écriture pour la refaire.</div>':'';
     el.innerHTML='<div class="addcard" style="font-family:var(--mono);font-size:12px">'+
       r.entrees+' entrée(s) « En entreprise » · <b>'+fmt(r.km)+' km</b> × '+r.taux+' $/km = <b>'+fmt(r.montant)+' $</b></div>'+avert;
