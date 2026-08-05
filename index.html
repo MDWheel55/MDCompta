@@ -1402,8 +1402,9 @@ function rendreGraphJours(b, parJour, couleur){
   var bw=16, gap=6, H=150, marge=22;
   var W=jours.length*(bw+gap)+10;
   var s='<svg viewBox="0 0 '+W+' '+(H+marge+14)+'" style="width:100%;max-width:'+(W*1.6)+'px;font-family:var(--mono)">';
-  // lignes de repère
-  for(var y=0;y<=maxH;y+=(maxH>10?2:1)){
+  // lignes de repère — pas calculé pour rester à ~6 repères quel que soit maxH
+  var pas=Math.max(1, Math.ceil(maxH/6));
+  for(var y=0;y<=maxH;y+=pas){
     var py=H-(y/maxH)*H;
     s+='<line x1="0" y1="'+py+'" x2="'+W+'" y2="'+py+'" stroke="#D7DEE5" stroke-width="0.5" stroke-dasharray="3,3"/>';
     s+='<text x="0" y="'+(py-2)+'" font-size="7" fill="#8A97A3">'+y+'h</text>';
