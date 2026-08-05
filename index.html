@@ -202,19 +202,34 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
     <section id="tab-temps" class="hidden">
       <div class="sec">Temps
         <div class="sec-actions">
-          <button class="btn" onclick="basculerRef()">Référentiels</button>
-          <button class="btn" onclick="ouvrirModalKm()">Km du mois</button>
-          <button class="btn btn-g" onclick="ouvrirModalImport()">Importer d'Outlook</button>
+          <button class="btn" onclick="ouvrirModalImport()">Importer d'Outlook</button>
           <button class="btn btn-g" onclick="ouvrirModalFacturer()">Facturer</button>
           <button class="btn btn-p" onclick="ouvrirModalTemps()">+ Saisie manuelle</button>
         </div>
       </div>
 
-      <div id="tp-cartes" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:1rem"></div>
+      <!-- Navigation interne -->
+      <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
+        <button class="chip on" id="tpchip-som" onclick="showTempsSec('som')">Sommaire</button>
+        <button class="chip" id="tpchip-cli" onclick="showTempsSec('cli')">Clients</button>
+        <button class="chip" id="tpchip-prj" onclick="showTempsSec('prj')">Projets</button>
+        <button class="chip" id="tpchip-km"  onclick="showTempsSec('km')">Km</button>
+        <button class="chip" id="tpchip-jrn" onclick="showTempsSec('jrn')">Journal</button>
+      </div>
 
-      <!-- Référentiels (repliables) -->
-      <div id="tp-ref" class="hidden">
-        <div class="sec" style="border:none;margin-bottom:6px">Référentiels — clients (distance aller-retour)</div>
+      <!-- ── SOMMAIRE ── -->
+      <div id="tp-sec-som">
+        <div id="tp-cartes" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:1.2rem"></div>
+        <div class="sec" style="border:none;margin-bottom:6px">Non facturé par client</div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Client</th><th class="num">Entrées</th><th class="num">Heures</th><th class="num">Montant (HT)</th><th></th></tr></thead>
+          <tbody id="tp-som-body"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
+        </table></div>
+      </div>
+
+      <!-- ── CLIENTS ── -->
+      <div id="tp-sec-cli" class="hidden">
+        <div class="sec" style="border:none;margin-bottom:6px">Clients — alias de détection Outlook et distance aller-retour</div>
         <div class="addcard">
           <div class="addgrid">
             <div class="fld"><label class="lbl">Client</label><input class="inp" id="rc-client" placeholder="ex: Bois Laurentide"></div>
@@ -223,12 +238,15 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
             <div class="fld"><button class="btn btn-p" onclick="ajouterRefClient()">+ Ajouter</button></div>
           </div>
         </div>
-        <div class="tbl-wrap" style="margin-bottom:1.2rem"><table>
+        <div class="tbl-wrap"><table>
           <thead><tr><th>Client</th><th>Alias (détection Outlook)</th><th class="num">Distance A/R (km)</th><th></th></tr></thead>
           <tbody id="rc-body"><tr><td colspan="4" class="empty">Chargement…</td></tr></tbody>
         </table></div>
+      </div>
 
-        <div class="sec" style="border:none;margin-bottom:6px">Référentiels — projets (taux horaire)</div>
+      <!-- ── PROJETS ── -->
+      <div id="tp-sec-prj" class="hidden">
+        <div class="sec" style="border:none;margin-bottom:6px">Projets — le taux horaire est défini ICI, par projet</div>
         <div class="addcard">
           <div class="addgrid">
             <div class="fld"><label class="lbl">Projet</label><input class="inp" id="rp-projet" placeholder="ex: 2026 - BoisLaurentide"></div>
@@ -237,30 +255,43 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
             <div class="fld"><button class="btn btn-p" onclick="ajouterRefProjet()">+ Ajouter</button></div>
           </div>
         </div>
-        <div class="tbl-wrap" style="margin-bottom:1.2rem"><table>
+        <div class="tbl-wrap"><table>
           <thead><tr><th>Projet</th><th>Client</th><th class="num">Taux</th><th>Actif</th><th></th></tr></thead>
           <tbody id="rp-body"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
         </table></div>
+      </div>
 
+      <!-- ── KM ── -->
+      <div id="tp-sec-km" class="hidden">
+        <div class="sec" style="border:none;margin-bottom:6px">Kilométrage — allocation 5020 sur « Avance actionnaire »</div>
         <div class="addcard" style="max-width:440px">
           <div class="addgrid">
-            <div class="fld"><label class="lbl">Taux au km (allocation 5020)</label><input class="inp" id="ref-tauxkm" type="number" step="0.01"></div>
+            <div class="fld"><label class="lbl">Taux au km</label><input class="inp" id="ref-tauxkm" type="number" step="0.01"></div>
             <div class="fld"><button class="btn btn-p" onclick="sauverTauxKm()">Enregistrer</button></div>
           </div>
         </div>
+        <div class="sec" style="border:none;margin:1rem 0 6px">Km « En entreprise » par mois</div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Mois</th><th class="num">Entrées</th><th class="num">Km</th><th class="num">Montant</th><th></th></tr></thead>
+          <tbody id="tp-km-body"><tr><td colspan="5" class="empty">Chargement…</td></tr></tbody>
+        </table></div>
+        <p class="hint" style="margin-top:8px;color:var(--muted)">« Comptabiliser » crée UNE écriture Dépenses / 5020 (HT, montant négatif) datée du dernier jour du mois, Pièce KM-AAAA-MM. À lancer en fin de mois.</p>
       </div>
 
-      <div class="addcard">
-        <div class="addgrid">
-          <div class="fld"><label class="lbl">Client</label><select class="inp" id="tp-f-client" onchange="rendreTemps()"><option value="">Tous</option></select></div>
-          <div class="fld"><label class="lbl">Statut</label><select class="inp" id="tp-f-statut" onchange="rendreTemps()"><option value="">Tous</option><option>Non facturé</option><option>Facturé</option></select></div>
-          <div class="fld"><button class="btn btn-g" onclick="chargerTemps()">Rafraîchir</button></div>
+      <!-- ── JOURNAL DU TEMPS ── -->
+      <div id="tp-sec-jrn" class="hidden">
+        <div class="addcard">
+          <div class="addgrid">
+            <div class="fld"><label class="lbl">Client</label><select class="inp" id="tp-f-client" onchange="rendreTemps()"><option value="">Tous</option></select></div>
+            <div class="fld"><label class="lbl">Statut</label><select class="inp" id="tp-f-statut" onchange="rendreTemps()"><option value="">Tous</option><option>Non facturé</option><option>Facturé</option></select></div>
+            <div class="fld"><button class="btn btn-g" onclick="chargerTemps()">Rafraîchir</button></div>
+          </div>
         </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Date</th><th>Client</th><th>Projet</th><th>Plage</th><th class="num">Heures</th><th class="num">Taux</th><th class="num">Montant</th><th>Lieu</th><th class="num">Km</th><th>Statut</th><th>Facture</th><th></th></tr></thead>
+          <tbody id="tp-body"><tr><td colspan="12" class="empty">Chargement…</td></tr></tbody>
+        </table></div>
       </div>
-      <div class="tbl-wrap"><table>
-        <thead><tr><th>Date</th><th>Client</th><th>Projet</th><th>Plage</th><th class="num">Heures</th><th class="num">Taux</th><th class="num">Montant</th><th>Lieu</th><th class="num">Km</th><th>Statut</th><th>Facture</th><th></th></tr></thead>
-        <tbody id="tp-body"><tr><td colspan="12" class="empty">Chargement…</td></tr></tbody>
-      </table></div>
     </section>
     <!-- ===== FACTURATION ===== -->
     <section id="tab-factu" class="hidden">
@@ -1100,8 +1131,16 @@ async function initTemps(){
   await chargerTemps();
 }
 
+/* ---- Navigation interne de l'onglet Temps ---- */
+var TP_SECTIONS=['som','cli','prj','km','jrn'];
+function showTempsSec(s){
+  TP_SECTIONS.forEach(function(x){
+    document.getElementById('tp-sec-'+x).classList.toggle('hidden', x!==s);
+    document.getElementById('tpchip-'+x).classList.toggle('on', x===s);
+  });
+}
+
 /* ---- Référentiels ---- */
-function basculerRef(){ document.getElementById('tp-ref').classList.toggle('hidden'); }
 
 async function chargerReferentiels(){
   try{
@@ -1244,6 +1283,9 @@ function rendreTemps(){
     bloc('Heures du mois', fmt(hMois)+' h', mc)+
     bloc('Km du mois (en entreprise)', fmt(kmMois)+' km', '× '+REF.tauxKm+' $/km = '+fmt(kmMois*REF.tauxKm)+' $');
 
+  rendreSommaireClients();
+  rendreKmMois();
+
   if(!ls.length){ tb.innerHTML='<tr><td colspan="12" class="empty">Aucune entrée de temps.</td></tr>'; return; }
   tb.innerHTML='';
   ls.forEach(function(l){
@@ -1259,6 +1301,53 @@ function rendreTemps(){
       '<td class="num">'+fmt(l.heures)+'</td><td class="num">'+fmt(l.taux)+'</td><td class="num">'+fmt(l.montant)+'</td>'+
       '<td>'+esc(l.lieu)+'</td><td class="num">'+(l.km?fmt(l.km):'')+'</td>'+
       '<td>'+st+'</td><td>'+esc(l.noFacture)+'</td><td>'+act+'</td>';
+    tb.appendChild(tr);
+  });
+}
+
+function rendreSommaireClients(){
+  var tb=document.getElementById('tp-som-body');
+  var par={};
+  TEMPS_LIGNES.forEach(function(l){
+    if(l.statut==='Facturé') return;
+    if(!par[l.client]) par[l.client]={n:0,h:0,m:0};
+    par[l.client].n++; par[l.client].h+=l.heures; par[l.client].m+=l.montant;
+  });
+  var cles=Object.keys(par).sort(function(a,b){ return par[b].m-par[a].m; });
+  if(!cles.length){ tb.innerHTML='<tr><td colspan="5" class="empty">Rien à facturer.</td></tr>'; return; }
+  tb.innerHTML='';
+  var tn=0,th=0,tm=0;
+  cles.forEach(function(c){
+    var v=par[c]; tn+=v.n; th+=v.h; tm+=v.m;
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+esc(c)+'</td><td class="num">'+v.n+'</td><td class="num">'+fmt(v.h)+'</td>'+
+      '<td class="num" style="font-weight:700">'+fmt(v.m)+'</td>'+
+      '<td><button class="btn" style="padding:2px 8px;font-size:9px" onclick="ouvrirModalFacturer(\''+esc(c)+'\')">Facturer…</button></td>';
+    tb.appendChild(tr);
+  });
+  var tr=document.createElement('tr'); tr.style.borderTop='2px solid var(--border)';
+  tr.innerHTML='<td style="font-weight:700">Total</td><td class="num">'+tn+'</td><td class="num" style="font-weight:700">'+fmt(th)+'</td><td class="num" style="font-weight:800;color:var(--pur)">'+fmt(tm)+'</td><td></td>';
+  tb.appendChild(tr);
+}
+
+function rendreKmMois(){
+  var tb=document.getElementById('tp-km-body');
+  var par={};
+  TEMPS_LIGNES.forEach(function(l){
+    if(l.lieu!=='En entreprise'||!l.km) return;
+    var m=l.date.slice(0,7);
+    if(!par[m]) par[m]={n:0,km:0};
+    par[m].n++; par[m].km+=l.km;
+  });
+  var mois=Object.keys(par).sort().reverse();
+  if(!mois.length){ tb.innerHTML='<tr><td colspan="5" class="empty">Aucun déplacement « En entreprise ».</td></tr>'; return; }
+  tb.innerHTML='';
+  mois.forEach(function(m){
+    var v=par[m];
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+esc(m)+'</td><td class="num">'+v.n+'</td><td class="num">'+fmt(v.km)+'</td>'+
+      '<td class="num">'+fmt(v.km*REF.tauxKm)+'</td>'+
+      '<td><button class="btn" style="padding:2px 8px;font-size:9px" onclick="ouvrirModalKm(\''+esc(m)+'\')">Comptabiliser…</button></td>';
     tb.appendChild(tr);
   });
 }
@@ -1392,7 +1481,7 @@ async function importerSelection(){
 }
 
 /* ---- Facturation des heures ---- */
-function ouvrirModalFacturer(){
+function ouvrirModalFacturer(client){
   if(!REF.clients.length){ alert('Aucun client dans les Référentiels.'); return; }
   var now=new Date();
   var d1=new Date(now.getFullYear(),now.getMonth(),1);
@@ -1404,7 +1493,9 @@ function ouvrirModalFacturer(){
   document.getElementById('ft-recap').innerHTML='';
   document.getElementById('ft-copier').style.display='none';
   FT_APERCU=null; FT_DERNIERE=null;
+  if(client){ document.getElementById('ft-client').value=client; }
   document.getElementById('modal-fact').classList.add('show');
+  if(client){ apercuFacturation(); }
 }
 function fermerModalFacturer(){ document.getElementById('modal-fact').classList.remove('show'); }
 
@@ -1470,10 +1561,11 @@ function copierDetailFacture(){
 }
 
 /* ---- Kilométrage mensuel (5020) ---- */
-function ouvrirModalKm(){
-  document.getElementById('km-mois').value=new Date().toISOString().slice(0,7);
+function ouvrirModalKm(mois){
+  document.getElementById('km-mois').value=mois||new Date().toISOString().slice(0,7);
   document.getElementById('km-recap').innerHTML='Choisis un mois puis « Aperçu ».';
   document.getElementById('modal-km').classList.add('show');
+  if(mois){ apercuKm(); }
 }
 function fermerModalKm(){ document.getElementById('modal-km').classList.remove('show'); }
 
