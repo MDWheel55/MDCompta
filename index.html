@@ -608,11 +608,29 @@ let TOKEN='';
 let SOUSCOMPTES={}, COMPTES=[], PLAN=[];
 const chargé={};
 
+/* Lit la réponse GAS en tolérant les ratés transitoires de Google : il arrive
+   que le service renvoie une page HTML (« <!DOCTYPE… ») au lieu du JSON —
+   erreur passagère ou page de connexion. On retente jusqu'à 3 fois avec un
+   court délai avant d'abandonner avec un message clair. */
+async function _gsLire(faireRequete){
+  let derniere='';
+  for(let essai=1;essai<=3;essai++){
+    const res=await faireRequete();
+    const texte=await res.text();
+    try{ return JSON.parse(texte); }
+    catch(e){
+      derniere=texte.slice(0,60);
+      if(essai<3) await new Promise(function(r){ setTimeout(r, 600*essai); });
+    }
+  }
+  throw new Error('Réponse non-JSON de Google Apps Script (souvent transitoire — réessaie ; si ça persiste, vérifie que le déploiement est accessible à « Tout le monde »). Début : '+derniere);
+}
+
 async function gsApi(params){
   try{
     setStatus(null,'Synchro…');
     const url=SCRIPT_URL+'?'+new URLSearchParams(Object.assign({token:TOKEN,_:Date.now()},params)).toString();
-    const res=await fetch(url,{cache:'no-store'}); const data=await res.json();
+    const data=await _gsLire(function(){ return fetch(url,{cache:'no-store'}); });
     if(!data.ok) throw new Error(data.error||'Erreur');
     setStatus(true,'✓ Synchronisé'); return data.data;
   }catch(e){ setStatus(false,'⚠ '+e.message); throw e; }
@@ -1127,9 +1145,10 @@ async function enregistrer(){
 async function gsApiPost(params){
   try{
     setStatus(null,'Synchro…');
-    const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify(Object.assign({token:TOKEN},params))});
-    const data=await res.json();
+    const data=await _gsLire(function(){
+      return fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify(Object.assign({token:TOKEN},params))});
+    });
     if(!data.ok) throw new Error(data.error||'Erreur');
     setStatus(true,'✓ Synchronisé'); return data.data;
   }catch(e){ setStatus(false,'⚠ '+e.message); throw e; }
@@ -1610,12 +1629,21 @@ async function chargerCandidats(){
     IMP_CAND=(r&&r.candidats)||[];
     if(!IMP_CAND.length){ tb.innerHTML='<tr><td colspan="8" class="empty">Aucun événement « Client - Projet » à importer.</td></tr>'; return; }
     tb.innerHTML='';
+    var actifs=REF.projets.filter(function(p){ return p.actif; });
     IMP_CAND.forEach(function(c,i){
-      var proj=esc(c.projet)+(c.projetConnu?'':' <span class="tag" style="color:var(--amber)">projet inconnu</span>');
+      // Menu déroulant des projets ACTIFS : la détection du titre ne sert plus
+      // que de présélection. Titre complet de l'événement en infobulle.
+      var opts='<option value="">— choisir —</option>';
+      actifs.forEach(function(p){
+        var sel=(c.projetConnu && p.projet===c.projet)?' selected':'';
+        opts+='<option value="'+esc(p.projet)+'"'+sel+'>'+esc(p.projet)+' — '+esc(p.client)+'</option>';
+      });
       var tr=document.createElement('tr');
       tr.innerHTML='<td><input type="checkbox" id="imp-x-'+i+'"'+(c.projetConnu?' checked':'')+'></td>'+
-        '<td>'+esc(c.date)+'</td><td>'+esc(c.debut+'–'+c.fin)+'</td><td class="num">'+fmt(c.heures)+'</td>'+
-        '<td>'+esc(c.client)+'</td><td>'+proj+'</td>'+
+        '<td title="'+esc(c.titre)+'">'+esc(c.date)+'</td><td>'+esc(c.debut+'–'+c.fin)+'</td><td class="num">'+fmt(c.heures)+'</td>'+
+        '<td>'+esc(c.client)+'</td>'+
+        '<td><select class="inp" id="imp-p-'+i+'" style="padding:4px 6px;max-width:240px" onchange="document.getElementById(\'imp-x-'+i+'\').checked=!!this.value">'+opts+'</select>'+
+        (c.projetConnu?'':' <span class="tag" style="color:var(--amber)" title="Titre : '+esc(c.titre)+'">non reconnu</span>')+'</td>'+
         '<td><select class="inp" id="imp-l-'+i+'" style="padding:4px 6px"><option'+(c.lieu==='En entreprise'?' selected':'')+'>En entreprise</option><option'+(c.lieu==='Distance'?' selected':'')+'>Distance</option></select></td>'+
         '<td class="num">'+(c.km?fmt(c.km):'')+'</td>';
       tb.appendChild(tr);
@@ -1626,15 +1654,20 @@ async function chargerCandidats(){
 function cocherTous(on){ IMP_CAND.forEach(function(_,i){ var x=document.getElementById('imp-x-'+i); if(x) x.checked=on; }); }
 
 async function importerSelection(){
-  var sel=[];
+  var sel=[], sansProjet=0;
   IMP_CAND.forEach(function(c,i){
     var x=document.getElementById('imp-x-'+i);
     if(!x||!x.checked) return;
+    var projet=document.getElementById('imp-p-'+i).value;
+    if(!projet){ sansProjet++; return; }
+    // Le projet du menu fait foi : client, taux et km sont dérivés des
+    // référentiels côté serveur (_completerEntree), pas du titre Outlook.
     sel.push({uid:c.uid,date:c.date,debut:c.debut,fin:c.fin,heures:c.heures,
-      client:c.client,projet:c.projet,taux:c.taux,
+      projet:projet,
       lieu:document.getElementById('imp-l-'+i).value});
   });
-  if(!sel.length){ alert('Aucune ligne cochée.'); return; }
+  if(sansProjet){ alert(sansProjet+' ligne(s) cochée(s) sans projet choisi — elles seront ignorées.'); }
+  if(!sel.length){ alert('Aucune ligne cochée avec un projet.'); return; }
   var btn=document.getElementById('imp-save');
   btn.disabled=true; btn.textContent='…';
   try{
