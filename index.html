@@ -516,11 +516,12 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
       <div class="fld"><label class="lbl">Depuis</label><input class="inp" id="imp-depuis" type="date"></div>
       <div class="fld"><button class="btn btn-g" id="imp-chercher" onclick="chargerCandidats()">Chercher</button></div>
     </div>
-    <p class="hint" style="color:var(--muted)">Seuls les événements « Client - Projet » non annulés, non récurrents et pas déjà importés sont proposés. « distance » dans le titre = télétravail.</p>
+    <p class="hint" style="color:var(--muted)">Sont proposés : les événements dont le titre est un CLIENT (nom ou alias exact) ou « Client - Projet », non annulés, non récurrents, pas déjà importés. Le projet se choisit ici — présélectionné si le client n'a qu'un projet actif. « distance » dans le titre = télétravail.</p>
     <div class="tbl-wrap" style="margin-top:8px"><table>
       <thead><tr><th><input type="checkbox" id="imp-tous" onchange="cocherTous(this.checked)"></th><th>Date</th><th>Plage</th><th class="num">H</th><th>Client</th><th>Projet</th><th>Lieu</th><th class="num">Km</th></tr></thead>
       <tbody id="imp-body"><tr><td colspan="8" class="empty">Choisis une date puis « Chercher ».</td></tr></tbody>
     </table></div>
+    <div id="imp-ignores" style="margin-top:10px"></div>
     <div class="modal-btns">
       <button class="btn" onclick="fermerModalImport()">Fermer</button>
       <button class="btn btn-p" id="imp-save" onclick="importerSelection()">Importer la sélection</button>
@@ -1615,6 +1616,7 @@ var IMP_CAND=[];
 function ouvrirModalImport(){
   document.getElementById('imp-depuis').value='2026-08-01';
   document.getElementById('imp-body').innerHTML='<tr><td colspan="8" class="empty">Choisis une date puis « Chercher ».</td></tr>';
+  document.getElementById('imp-ignores').innerHTML='';
   IMP_CAND=[];
   document.getElementById('modal-imp').classList.add('show');
 }
@@ -1627,6 +1629,7 @@ async function chargerCandidats(){
   try{
     var r=await gsApi({action:'icsCandidats',depuis:document.getElementById('imp-depuis').value});
     IMP_CAND=(r&&r.candidats)||[];
+    rendreIgnoresImport((r&&r.ignores)||[]);
     if(!IMP_CAND.length){ tb.innerHTML='<tr><td colspan="8" class="empty">Aucun événement « Client - Projet » à importer.</td></tr>'; return; }
     tb.innerHTML='';
     var actifs=REF.projets.filter(function(p){ return p.actif; });
@@ -1652,6 +1655,21 @@ async function chargerCandidats(){
   finally{ btn.disabled=false; btn.textContent='Chercher'; }
 }
 function cocherTous(on){ IMP_CAND.forEach(function(_,i){ var x=document.getElementById('imp-x-'+i); if(x) x.checked=on; }); }
+
+/* Événements de la fenêtre écartés par les filtres, avec la raison. Un
+   événement absent des candidats ET de cette liste n'est pas encore dans le
+   flux ICS publié (Outlook le rafraîchit périodiquement, souvent aux 3-4 h). */
+function rendreIgnoresImport(ig){
+  var el=document.getElementById('imp-ignores');
+  if(!ig.length){ el.innerHTML='<p class="hint" style="color:var(--muted)">Aucun événement écarté sur la fenêtre. Un événement attendu mais absent n\'est pas encore dans le flux ICS publié (délai Outlook, souvent 3-4 h).</p>'; return; }
+  var h='<details><summary class="hint" style="cursor:pointer;color:var(--muted)">'+ig.length+' événement(s) écarté(s) — cliquer pour voir pourquoi</summary>'+
+    '<div style="max-height:160px;overflow:auto;font-family:var(--mono);font-size:10px;margin-top:6px;color:var(--dim)">';
+  ig.forEach(function(x){
+    h+='<div style="padding:2px 0">'+esc(x.date)+' '+esc(x.debut)+'–'+esc(x.fin)+' · «&nbsp;'+esc(x.titre)+'&nbsp;» — '+esc(x.raison)+'</div>';
+  });
+  h+='</div><p class="hint" style="color:var(--muted);margin-top:6px">Un événement absent des candidats ET de cette liste n\'est pas encore dans le flux ICS publié (délai de rafraîchissement Outlook, souvent 3-4 h).</p></details>';
+  el.innerHTML=h;
+}
 
 async function importerSelection(){
   var sel=[], sansProjet=0;
