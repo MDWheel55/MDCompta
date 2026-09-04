@@ -533,6 +533,10 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
 <div class="modal-bg" id="modal-fact">
   <div class="modal" style="max-width:720px">
     <div class="modal-title">Facturer les heures</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="chip" id="ftper-prec" onclick="periodeFacturation('prec')">Mois précédent</button>
+      <button class="chip" id="ftper-cour" onclick="periodeFacturation('cour')">Ce mois</button>
+    </div>
     <div class="addgrid" style="margin-bottom:10px">
       <div class="fld"><label class="lbl">Client</label><select class="inp" id="ft-client"></select></div>
       <div class="fld"><label class="lbl">Du</label><input class="inp" id="ft-d1" type="date"></div>
@@ -1698,13 +1702,28 @@ async function importerSelection(){
 }
 
 /* ---- Facturation des heures ---- */
+function periodeFacturation(quel){
+  var now=new Date(), d1, d2;
+  if(quel==='prec'){ d1=new Date(now.getFullYear(),now.getMonth()-1,1); d2=new Date(now.getFullYear(),now.getMonth(),0); }
+  else             { d1=new Date(now.getFullYear(),now.getMonth(),1);   d2=new Date(now.getFullYear(),now.getMonth()+1,0); }
+  document.getElementById('ft-d1').value=_dstr(d1);
+  document.getElementById('ft-d2').value=_dstr(d2);
+  document.getElementById('ftper-prec').classList.toggle('on', quel==='prec');
+  document.getElementById('ftper-cour').classList.toggle('on', quel!=='prec');
+  if(document.getElementById('ft-client').value){ apercuFacturation(); }
+}
+
 function ouvrirModalFacturer(client){
   if(!REF.clients.length){ alert('Aucun client dans les Référentiels.'); return; }
+  // Défaut : MOIS PRÉCÉDENT complet — le flux normal est de facturer le mois
+  // terminé, sans attraper les heures du mois en cours.
   var now=new Date();
-  var d1=new Date(now.getFullYear(),now.getMonth(),1);
-  document.getElementById('ft-d1').value=d1.toISOString().slice(0,10);
-  document.getElementById('ft-d2').value=now.toISOString().slice(0,10);
-  document.getElementById('ft-date').value=now.toISOString().slice(0,10);
+  var p1=new Date(now.getFullYear(),now.getMonth()-1,1), p2=new Date(now.getFullYear(),now.getMonth(),0);
+  document.getElementById('ft-d1').value=_dstr(p1);
+  document.getElementById('ft-d2').value=_dstr(p2);
+  document.getElementById('ftper-prec').classList.add('on');
+  document.getElementById('ftper-cour').classList.remove('on');
+  document.getElementById('ft-date').value=_dstr(now);
   document.getElementById('ft-no').value='';
   document.getElementById('ft-body').innerHTML='<tr><td colspan="6" class="empty">Choisis un client et une période, puis « Aperçu ».</td></tr>';
   document.getElementById('ft-recap').innerHTML='';
@@ -1736,9 +1755,17 @@ async function apercuFacturation(){
     });
     var t=r.totaux;
     var tps=Math.round(t.montant*0.05*100)/100, tvq=Math.round(t.montant*0.09975*100)/100;
+    // Garde-fou : heures non facturées de CE client HORS de la période choisie
+    var d1=document.getElementById('ft-d1').value, d2=document.getElementById('ft-d2').value;
+    var cli=document.getElementById('ft-client').value, hors=0, horsH=0;
+    TEMPS_LIGNES.forEach(function(l){
+      if(l.client!==cli||l.statut==='Facturé') return;
+      if((d1&&l.date<d1)||(d2&&l.date>d2)){ hors++; horsH+=l.heures; }
+    });
+    var avert=hors?'<p class="hint" style="color:var(--amber);margin-top:6px">⚠ '+hors+' entrée(s) non facturée(s) ('+fmt(horsH)+' h) HORS de cette période — elles ne seront pas incluses.</p>':'';
     document.getElementById('ft-recap').innerHTML='<div class="addcard" style="font-family:var(--mono);font-size:12px">'+
       t.entrees+' entrée(s) · <b>'+fmt(t.heures)+' h</b> · sous-total <b>'+fmt(t.montant)+' $</b>'+
-      ' · TPS '+fmt(tps)+' · TVQ '+fmt(tvq)+' · total <b>'+fmt(t.montant+tps+tvq)+' $</b></div>';
+      ' · TPS '+fmt(tps)+' · TVQ '+fmt(tvq)+' · total <b>'+fmt(t.montant+tps+tvq)+' $</b></div>'+avert;
   }catch(e){ tb.innerHTML='<tr><td colspan="6" class="empty">Erreur : '+esc(e.message)+'</td></tr>'; }
 }
 
