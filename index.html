@@ -355,8 +355,21 @@ table.resizable th,table.resizable td{overflow:hidden;text-overflow:ellipsis}
       <div class="sec">Position actionnaire</div>
       <div class="poscard" id="pos-card">
         <div class="pl"><span>Apports de capital (9070)</span><span class="v" id="pos-apports">—</span></div>
+        <div class="pl"><span>Prêt investissement (9075)</span><span class="v" id="pos-pret">—</span></div>
         <div class="pl"><span>Dépenses cie payées au perso (à te rembourser)</span><span class="v" id="pos-perso">—</span></div>
         <div class="pnet"><span class="lbl2" id="pos-lbl">La compagnie vous doit</span><span class="val" id="pos-net">—</span></div>
+      </div>
+
+      <div class="sec">Dividendes — compteurs CDC et IMRTD (estimation)</div>
+      <div class="poscard" id="div-card">
+        <div class="pl"><span>CDC brut — moitié non imposable des gains nets (4001)</span><span class="v" id="div-cdcbrut">—</span></div>
+        <div class="pl"><span>− Dividendes en capital déjà versés (9210)</span><span class="v" id="div-capv">—</span></div>
+        <div class="pl" style="font-weight:700"><span>Solde CDC — versable SANS impôt</span><span class="v" id="div-cdc">—</span></div>
+        <div class="pl" style="margin-top:10px"><span>IMRTD brut — impôt remboursable accumulé</span><span class="v" id="div-imrtdbrut">—</span></div>
+        <div class="pl"><span>− Remboursements déjà déclenchés (9220)</span><span class="v" id="div-rembv">—</span></div>
+        <div class="pl" style="font-weight:700"><span>Solde IMRTD estimé</span><span class="v" id="div-imrtd">—</span></div>
+        <div class="pnet"><span class="lbl2">Dividende non déterminé pour vider l'IMRTD</span><span class="val" id="div-optimal">—</span></div>
+        <p class="hint" style="margin:8px 0 0;color:var(--muted)">Estimations tirées du journal (4001-4004, toutes années) — le CDC réel se vérifie LE JOUR du versement et l'IMRTD exact vient du T2 : Jean-Guy fait foi. T2054 (ARC) + CO-502 (RQ) obligatoires AVANT un dividende en capital, sinon il devient imposable. Versements à saisir au journal : Transfert, montant négatif, 9210 (capital) ou 9220 (non déterminé).</p>
       </div>
       <div class="sec">Comptes financiers</div>
       <div class="addcard">
@@ -859,11 +872,24 @@ async function chargerPositionActionnaire(){
   try{
     var r=await gsApi({action:'positionActionnaire'}); if(!r) return;
     document.getElementById('pos-apports').textContent=fmt(r.apports);
+    document.getElementById('pos-pret').textContent=fmt(r.pret||0);
     document.getElementById('pos-perso').textContent=fmt(r.depensesPerso);
     var net=r.net||0, lbl=document.getElementById('pos-lbl'), val=document.getElementById('pos-net');
     val.textContent=fmt(Math.abs(net));
     if(net>=0){ lbl.textContent='La compagnie vous doit'; val.style.color='var(--green)'; }
     else{ lbl.textContent='Vous devez à la compagnie'; val.style.color='var(--red)'; }
+    var dv=r.dividendes;
+    if(dv){
+      document.getElementById('div-cdcbrut').textContent=fmt(dv.cdcBrut);
+      document.getElementById('div-capv').textContent=fmt(dv.capVerses);
+      document.getElementById('div-cdc').textContent=fmt(dv.cdc);
+      document.getElementById('div-imrtdbrut').textContent=fmt(dv.imrtdBrut);
+      document.getElementById('div-rembv').textContent=fmt(dv.rembDeclenches);
+      document.getElementById('div-imrtd').textContent=fmt(dv.imrtd);
+      var opt=document.getElementById('div-optimal');
+      opt.textContent=fmt(dv.divOptimal);
+      opt.style.color='var(--green)';
+    }
   }catch(e){}
 }
 
